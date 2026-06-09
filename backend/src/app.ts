@@ -12,14 +12,44 @@ import { setupSwagger } from './config/swagger';
 export function createApp() {
   const app = express();
 
+  const allowedOrigins = [
+  "http://localhost:5173",
+  "https://siak-website.vercel.app",
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow Postman, curl, health check, server-to-server request
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    const isAllowedOrigin = allowedOrigins.includes(origin);
+
+    // Allow Vercel preview deployments untuk project frontend kamu
+    const isVercelPreview =
+      /^https:\/\/siak-website.*\.vercel\.app$/.test(origin);
+
+    if (isAllowedOrigin || isVercelPreview) {
+      return callback(null, true);
+    }
+
+    console.log("CORS blocked origin:", origin);
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
+
   // Security & parsing
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(
-    cors({
-      origin: "https://siak-website.vercel.app",
-      credentials: true,
-    }),
+    cors(corsOptions),
   );
+
+app.options("*", cors(corsOptions));
   app.use(compression());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
