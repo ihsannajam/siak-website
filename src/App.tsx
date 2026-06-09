@@ -9,6 +9,10 @@ import { PpdbPage } from './pages/PpdbPage'
 import { SchedulesPage } from './pages/SchedulesPage'
 import { CrudPage } from './pages/CrudPage'
 import { getModuleConfig } from './config/modules'
+import { API_BASE_URL } from './lib/api'
+
+// URL Swagger backend: ganti '/api' di akhir base URL menjadi '/api-docs'.
+const apiDocsUrl = API_BASE_URL.replace(/\/api\/?$/, '') + '/api-docs'
 
 /** Resolves a generic CRUD page from the URL module key. */
 function ModulePage() {
@@ -25,7 +29,7 @@ function ModulePage() {
           <div className="card-body">
             <p>
               Modul <strong>{moduleKey}</strong> tersedia melalui REST API dan dapat diuji di{' '}
-              <a href="http://localhost:5000/api-docs" target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>
+              <a href={apiDocsUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>
                 Swagger (/api-docs)
               </a>
               .

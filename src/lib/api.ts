@@ -24,8 +24,11 @@ export const tokenStore = {
   },
 }
 
+// Base URL API: dari VITE_API_URL (production), fallback ke proxy Vite '/api' (development).
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? '/api'
+
 export const api: AxiosInstance = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -61,7 +64,7 @@ api.interceptors.response.use(
       original._retry = true
       isRefreshing = true
       try {
-        const { data } = await axios.post('/api/auth/refresh-token', {
+        const { data } = await axios.post(`${API_BASE_URL}/auth/refresh-token`, {
           refreshToken: tokenStore.refresh,
         })
         const newAccess = data.data.accessToken as string

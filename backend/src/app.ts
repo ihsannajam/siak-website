@@ -14,7 +14,12 @@ export function createApp() {
 
   // Security & parsing
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
-  app.use(cors({ origin: env.corsOrigin.split(','), credentials: true }));
+  app.use(
+    cors({
+      origin: env.corsOrigin.split(',').map((o) => o.trim()).filter(Boolean),
+      credentials: true,
+    }),
+  );
   app.use(compression());
   app.use(express.json({ limit: '10mb' }));
   app.use(express.urlencoded({ extended: true }));
