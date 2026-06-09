@@ -12,11 +12,12 @@ import { setupSwagger } from './config/swagger';
 export function createApp() {
   const app = express();
 
-  const allowedOrigins = [
-  "http://localhost:5173",
-  "https://siak-website.vercel.app",
-  process.env.FRONTEND_URL,
-].filter(Boolean) as string[];
+  // CORS_ORIGIN supports comma-separated values, e.g.:
+  // CORS_ORIGIN=http://localhost:5173,https://siak-website.vercel.app
+  const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
 
 const corsOptions: cors.CorsOptions = {
   origin: (origin, callback) => {
@@ -27,9 +28,9 @@ const corsOptions: cors.CorsOptions = {
 
     const isAllowedOrigin = allowedOrigins.includes(origin);
 
-    // Allow Vercel preview deployments untuk project frontend kamu
+    // Allow Vercel preview deployments untuk project frontend
     const isVercelPreview =
-      /^https:\/\/siak-website.*\.vercel\.app$/.test(origin);
+      /^https:\/\/siak-website[\w-]*\.vercel\.app$/.test(origin);
 
     if (isAllowedOrigin || isVercelPreview) {
       return callback(null, true);
