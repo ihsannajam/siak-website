@@ -1,0 +1,1145 @@
+// ============================================================================
+//  SIAK RQ An Nahl - Prisma Schema (PostgreSQL)
+//  Setiap tabel memiliki: id, createdAt, updatedAt, createdBy, updatedBy,
+//  dan deletedAt (soft delete).
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================== ENUMS =======================================
+
+enum SemesterType {
+  GANJIL
+  GENAP
+}
+
+enum Gender {
+  LAKI_LAKI
+  PEREMPUAN
+}
+
+enum StudentStatus {
+  AKTIF
+  LULUS
+  PINDAH
+  DROP_OUT
+}
+
+enum EmploymentStatus {
+  TETAP
+  KONTRAK
+  HONORER
+}
+
+enum AssetCondition {
+  BAIK
+  RUSAK_RINGAN
+  RUSAK_BERAT
+  HILANG
+}
+
+enum AttendanceStatus {
+  HADIR
+  IZIN
+  SAKIT
+  ALPHA
+  TERLAMBAT
+}
+
+enum PpdbStatus {
+  BELUM_VERIFIKASI
+  TERVERIFIKASI
+  BERKAS_TIDAK_LENGKAP
+  SUDAH_SELEKSI
+  SEDANG_DIPROSES
+  BELUM_HADIR
+  DITERIMA
+  CADANGAN
+  TIDAK_DITERIMA
+}
+
+enum InvoiceType {
+  UANG_PANGKAL
+  SPP
+  KEGIATAN
+  DAFTAR_ULANG
+}
+
+enum PaymentStatus {
+  BELUM_BAYAR
+  MENUNGGU_VERIFIKASI
+  LUNAS
+  DITOLAK
+}
+
+enum CashType {
+  MASUK
+  KELUAR
+}
+
+enum LeaveType {
+  IZIN
+  CUTI
+  SAKIT
+}
+
+enum LeaveStatus {
+  DIAJUKAN
+  DISETUJUI
+  DITOLAK
+}
+
+enum GradeType {
+  TUGAS
+  UJIAN
+  PRAKTIK
+  SIKAP
+  TAHFIDZ
+}
+
+enum ReportCardStatus {
+  DRAFT
+  SUBMITTED
+  LOCKED
+  APPROVED
+}
+
+enum TahfidzQuality {
+  MUMTAZ
+  JAYYID_JIDDAN
+  JAYYID
+  MAQBUL
+}
+
+enum ScheduleStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum SalaryComponentType {
+  TUNJANGAN
+  POTONGAN
+  GAJI_POKOK
+}
+
+// ============================ AUTH & RBAC ===================================
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  email        String    @unique
+  passwordHash String    @map("password_hash")
+  fullName     String    @map("full_name")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+
+  employeeId String?    @map("employee_id")
+  employee   Employee?  @relation(fields: [employeeId], references: [id])
+
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(uuid())
+  name        String  @unique // ADMIN_TU, GURU, KEPALA_SEKOLAH, YAYASAN
+  displayName String  @map("display_name")
+  description String?
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("roles")
+}
+
+model Permission {
+  id       String @id @default(uuid())
+  name     String @unique // e.g. students.read, students.create
+  module   String
+  action   String
+  description String?
+
+  rolePermissions RolePermission[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("permissions")
+}
+
+model UserRole {
+  id     String @id @default(uuid())
+  userId String @map("user_id")
+  roleId String @map("role_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String     @map("role_id")
+  permissionId String     @map("permission_id")
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String    @unique
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("refresh_tokens")
+}
+
+// ===================== MASTER DATA INSTITUSI ================================
+
+model SchoolProfile {
+  id        String  @id @default(uuid())
+  name      String
+  npsn      String?
+  address   String?
+  phone     String?
+  email     String?
+  website   String?
+  logoPath  String? @map("logo_path")
+  headmaster String? @map("headmaster")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("school_profiles")
+}
+
+model AcademicYear {
+  id       String  @id @default(uuid())
+  name     String  @unique // e.g. 2025/2026
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  isActive Boolean @default(false) @map("is_active")
+  isArchived Boolean @default(false) @map("is_archived")
+
+  semesters Semester[]
+  classes   Class[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("academic_years")
+}
+
+model Semester {
+  id             String       @id @default(uuid())
+  academicYearId String       @map("academic_year_id")
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  type           SemesterType
+  isActive       Boolean      @default(false) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("semesters")
+}
+
+model AcademicCalendar {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  category    String   // LIBUR_NASIONAL, LIBUR_SEKOLAH, AGENDA
+  isHoliday   Boolean  @default(false) @map("is_holiday")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("academic_calendars")
+}
+
+model Subject {
+  id       String  @id @default(uuid())
+  code     String  @unique
+  name     String
+  category String? // e.g. Wajib, Muatan Lokal, Tahfidz
+  description String?
+
+  teacherAssignments TeacherSubjectAssignment[]
+  scheduleDetails    ScheduleDetail[]
+  grades             Grade[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("subjects")
+}
+
+model Curriculum {
+  id          String  @id @default(uuid())
+  name        String
+  code        String? @unique
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("curriculums")
+}
+
+// Rombongan belajar / kelas
+model Class {
+  id             String        @id @default(uuid())
+  name           String        // e.g. 1A, 7 Ibnu Sina
+  gradeLevel     String        @map("grade_level") // tingkat
+  academicYearId String        @map("academic_year_id")
+  academicYear   AcademicYear  @relation(fields: [academicYearId], references: [id])
+  homeroomTeacherId String?    @map("homeroom_teacher_id") // wali kelas
+  homeroomTeacher   Employee?  @relation(fields: [homeroomTeacherId], references: [id])
+  capacity       Int?
+
+  classAssignments StudentClassAssignment[]
+  scheduleDetails  ScheduleDetail[]
+  reportCards      ReportCard[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("classes")
+}
+
+// Ruang kelas fisik
+model Classroom {
+  id       String @id @default(uuid())
+  code     String @unique
+  name     String
+  capacity Int?
+  location String?
+
+  scheduleDetails ScheduleDetail[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("classrooms")
+}
+
+// ===================== MASTER DATA SISWA ===================================
+
+model Student {
+  id          String        @id @default(uuid())
+  nis         String?       @unique
+  nisn        String?       @unique
+  fullName    String        @map("full_name")
+  birthPlace  String?       @map("birth_place")
+  birthDate   DateTime?     @map("birth_date")
+  gender      Gender
+  address     String?
+  phone       String?
+  photoPath   String?       @map("photo_path")
+  status      StudentStatus @default(AKTIF)
+  ppdbId      String?       @unique @map("ppdb_id") // asal dari PPDB
+
+  family          StudentFamily?
+  healthRecord    StudentHealthRecord?
+  documents       StudentDocument[]
+  classAssignments StudentClassAssignment[]
+  attendances     AttendanceStudent[]
+  grades          Grade[]
+  reportCards     ReportCard[]
+  tahfidzRecords  TahfidzRecord[]
+  mutabaahRecords MutabaahRecord[]
+  invoices        Invoice[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("students")
+}
+
+model StudentFamily {
+  id        String  @id @default(uuid())
+  studentId String  @unique @map("student_id")
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  fatherName       String? @map("father_name")
+  fatherJob        String? @map("father_job")
+  fatherPhone      String? @map("father_phone")
+  motherName       String? @map("mother_name")
+  motherJob        String? @map("mother_job")
+  motherPhone      String? @map("mother_phone")
+  guardianName     String? @map("guardian_name")
+  guardianRelation String? @map("guardian_relation")
+  guardianPhone    String? @map("guardian_phone")
+  guardianAddress  String? @map("guardian_address")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("student_families")
+}
+
+model StudentHealthRecord {
+  id           String  @id @default(uuid())
+  studentId    String  @unique @map("student_id")
+  student      Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  bloodType    String? @map("blood_type")
+  height       Float?
+  weight       Float?
+  diseaseHistory String? @map("disease_history")
+  allergies    String?
+  notes        String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("student_health_records")
+}
+
+model StudentDocument {
+  id         String  @id @default(uuid())
+  studentId  String  @map("student_id")
+  student    Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  docType    String  @map("doc_type") // AKTA, KK, IJAZAH, FOTO
+  fileName   String  @map("file_name")
+  filePath   String  @map("file_path")
+  fileSize   Int?    @map("file_size")
+  mimeType   String? @map("mime_type")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("student_documents")
+}
+
+model StudentClassAssignment {
+  id        String   @id @default(uuid())
+  studentId String   @map("student_id")
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId   String   @map("class_id")
+  class     Class    @relation(fields: [classId], references: [id])
+  isActive  Boolean  @default(true) @map("is_active")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("student_class_assignments")
+}
+
+// ===================== MASTER DATA KEPEGAWAIAN =============================
+
+model Employee {
+  id              String           @id @default(uuid())
+  nip             String?          @unique
+  nuptk           String?          @unique
+  nik             String?          @unique
+  fullName        String           @map("full_name")
+  gender          Gender?
+  birthPlace      String?          @map("birth_place")
+  birthDate       DateTime?        @map("birth_date")
+  address         String?
+  phone           String?
+  email           String?
+  position        String           // Guru Mapel, Guru Tahfidz, Admin TU, dll.
+  employmentStatus EmploymentStatus @default(HONORER) @map("employment_status")
+  educationHistory String?         @map("education_history")
+  certification   String?
+  bankName        String?          @map("bank_name")
+  bankAccount     String?          @map("bank_account")
+  photoPath       String?          @map("photo_path")
+
+  users              User[]
+  documents          EmployeeDocument[]
+  salaryComponents   EmployeeSalaryComponent[]
+  subjectAssignments TeacherSubjectAssignment[]
+  homeroomClasses    Class[]
+  attendances        AttendanceEmployee[]
+  leaveRequests      LeaveRequest[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("employees")
+}
+
+model EmployeeDocument {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  docType    String   @map("doc_type") // KTP, NPWP, BUKU_TABUNGAN, SK
+  fileName   String   @map("file_name")
+  filePath   String   @map("file_path")
+  fileSize   Int?     @map("file_size")
+  mimeType   String?  @map("mime_type")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("employee_documents")
+}
+
+model EmployeeSalaryComponent {
+  id         String              @id @default(uuid())
+  employeeId String              @map("employee_id")
+  employee   Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name       String
+  type       SalaryComponentType
+  amount     Decimal             @db.Decimal(14, 2)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("employee_salary_components")
+}
+
+model TeacherSubjectAssignment {
+  id         String   @id @default(uuid())
+  employeeId String   @map("employee_id")
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  subjectId  String   @map("subject_id")
+  subject    Subject  @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@unique([employeeId, subjectId])
+  @@map("teacher_subject_assignments")
+}
+
+// ============================== PPDB =======================================
+
+model PpdbRegistration {
+  id                 String     @id @default(uuid())
+  registrationNumber String     @unique @map("registration_number")
+  fullName           String     @map("full_name")
+  birthPlace         String?    @map("birth_place")
+  birthDate          DateTime?  @map("birth_date")
+  gender             Gender
+  address            String?
+  // data kesehatan
+  bloodType          String?    @map("blood_type")
+  diseaseHistory     String?    @map("disease_history")
+  allergies          String?
+  // data wali
+  fatherName         String?    @map("father_name")
+  motherName         String?    @map("mother_name")
+  guardianName       String?    @map("guardian_name")
+  guardianPhone      String?    @map("guardian_phone")
+  status             PpdbStatus @default(BELUM_VERIFIKASI)
+  notes              String?
+
+  documents  PpdbDocument[]
+  schedules  PpdbSelectionSchedule[]
+  scorecards PpdbScorecard[]
+  payments   PpdbPayment[]
+  logs       PpdbActivityLog[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("ppdb_registrations")
+}
+
+model PpdbDocument {
+  id             String           @id @default(uuid())
+  registrationId String           @map("registration_id")
+  registration   PpdbRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  docType        String           @map("doc_type")
+  fileName       String           @map("file_name")
+  filePath       String           @map("file_path")
+  fileSize       Int?             @map("file_size")
+  mimeType       String?          @map("mime_type")
+  isVerified     Boolean          @default(false) @map("is_verified")
+  verifiedAt     DateTime?        @map("verified_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("ppdb_documents")
+}
+
+model PpdbSelectionSchedule {
+  id             String           @id @default(uuid())
+  registrationId String           @map("registration_id")
+  registration   PpdbRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  testDate       DateTime         @map("test_date")
+  testTime       String?          @map("test_time")
+  location       String?
+  attendance     AttendanceStatus?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("ppdb_selection_schedules")
+}
+
+model PpdbScorecard {
+  id             String           @id @default(uuid())
+  registrationId String           @map("registration_id")
+  registration   PpdbRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  writtenScore   Float?           @map("written_score")
+  interviewScore Float?           @map("interview_score")
+  behaviorScore  Float?           @map("behavior_score")
+  evaluatorNote  String?          @map("evaluator_note")
+  recommendation String?
+  evaluatorId    String?          @map("evaluator_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("ppdb_scorecards")
+}
+
+model PpdbPayment {
+  id             String           @id @default(uuid())
+  registrationId String           @map("registration_id")
+  registration   PpdbRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  amount         Decimal          @db.Decimal(14, 2)
+  status         PaymentStatus    @default(BELUM_BAYAR)
+  proofPath      String?          @map("proof_path")
+  paidAt         DateTime?        @map("paid_at")
+  verifiedAt     DateTime?        @map("verified_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("ppdb_payments")
+}
+
+model PpdbActivityLog {
+  id             String           @id @default(uuid())
+  registrationId String           @map("registration_id")
+  registration   PpdbRegistration @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  activity       String
+  detail         String?
+  actorId        String?          @map("actor_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("ppdb_activity_logs")
+}
+
+// ============================ AKADEMIK =====================================
+
+model Schedule {
+  id             String         @id @default(uuid())
+  name           String
+  academicYearId String         @map("academic_year_id")
+  semesterId     String         @map("semester_id")
+  status         ScheduleStatus @default(DRAFT)
+  publishedAt    DateTime?      @map("published_at")
+
+  details ScheduleDetail[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("schedules")
+}
+
+model ScheduleDetail {
+  id          String     @id @default(uuid())
+  scheduleId  String     @map("schedule_id")
+  schedule    Schedule   @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  dayOfWeek   Int        @map("day_of_week") // 1=Senin .. 7=Minggu
+  startTime   String     @map("start_time")  // "07:00"
+  endTime     String     @map("end_time")    // "08:30"
+  subjectId   String?    @map("subject_id")
+  subject     Subject?   @relation(fields: [subjectId], references: [id])
+  teacherId   String?    @map("teacher_id")
+  classId     String?    @map("class_id")
+  class       Class?     @relation(fields: [classId], references: [id])
+  classroomId String?    @map("classroom_id")
+  classroom   Classroom? @relation(fields: [classroomId], references: [id])
+  activityType String?   @map("activity_type") // MAPEL, TAHFIDZ_PAGI, SHALAT, HALAQAH
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("schedule_details")
+}
+
+model LearningRepository {
+  id             String  @id @default(uuid())
+  title          String
+  description    String?
+  subjectId      String? @map("subject_id")
+  academicYearId String? @map("academic_year_id")
+  docType        String  @map("doc_type") // SILABUS, RPP, MODUL, MATERI
+  fileName       String  @map("file_name")
+  filePath       String  @map("file_path")
+  fileSize       Int?    @map("file_size")
+  mimeType       String? @map("mime_type")
+  uploadedBy     String? @map("uploaded_by")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("learning_repositories")
+}
+
+// ========================= PRESENSI ========================================
+
+model AttendanceStudent {
+  id        String           @id @default(uuid())
+  studentId String           @map("student_id")
+  student   Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId   String?          @map("class_id")
+  subjectId String?          @map("subject_id")
+  date      DateTime
+  status    AttendanceStatus
+  note      String?
+  recordedBy String?         @map("recorded_by")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("attendance_students")
+}
+
+model AttendanceEmployee {
+  id         String           @id @default(uuid())
+  employeeId String           @map("employee_id")
+  employee   Employee         @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date       DateTime
+  checkIn    DateTime?        @map("check_in")
+  checkOut   DateTime?        @map("check_out")
+  status     AttendanceStatus
+  note       String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("attendance_employees")
+}
+
+// ====================== PENILAIAN & E-RAPOR ================================
+
+model Grade {
+  id         String    @id @default(uuid())
+  studentId  String    @map("student_id")
+  student    Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  subjectId  String    @map("subject_id")
+  subject    Subject   @relation(fields: [subjectId], references: [id])
+  semesterId String    @map("semester_id")
+  type       GradeType
+  score      Float
+  description String?
+  teacherId  String?   @map("teacher_id")
+  isLocked   Boolean   @default(false) @map("is_locked")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("grades")
+}
+
+model ReportCard {
+  id         String           @id @default(uuid())
+  studentId  String           @map("student_id")
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  classId    String?          @map("class_id")
+  class      Class?           @relation(fields: [classId], references: [id])
+  semesterId String           @map("semester_id")
+  status     ReportCardStatus @default(DRAFT)
+  averageScore Float?         @map("average_score")
+  rank       Int?
+  attitudeNote String?        @map("attitude_note")
+  teacherNote String?         @map("teacher_note")
+  filePath   String?          @map("file_path")
+  lockedAt   DateTime?        @map("locked_at")
+  approvedAt DateTime?        @map("approved_at")
+  approvedBy String?          @map("approved_by")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("report_cards")
+}
+
+// ===================== TAHFIDZ & MUTABA'AH ================================
+
+model TahfidzRecord {
+  id          String          @id @default(uuid())
+  studentId   String          @map("student_id")
+  student     Student         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  surah       String
+  fromAyah    Int             @map("from_ayah")
+  toAyah      Int             @map("to_ayah")
+  quality     TahfidzQuality
+  teacherNote String?         @map("teacher_note")
+  date        DateTime
+  teacherId   String?         @map("teacher_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("tahfidz_records")
+}
+
+model MutabaahRecord {
+  id        String   @id @default(uuid())
+  studentId String   @map("student_id")
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  date      DateTime
+  activity  String   // shalat, tilawah, dzikir, dll.
+  value     String?  // checklist / keterangan
+  note      String?
+  teacherId String?  @map("teacher_id")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("mutabaah_records")
+}
+
+// ============================ KEUANGAN =====================================
+
+model Invoice {
+  id          String        @id @default(uuid())
+  invoiceNumber String      @unique @map("invoice_number")
+  studentId   String        @map("student_id")
+  student     Student       @relation(fields: [studentId], references: [id])
+  type        InvoiceType
+  description String?
+  amount      Decimal       @db.Decimal(14, 2)
+  dueDate     DateTime?     @map("due_date")
+  status      PaymentStatus @default(BELUM_BAYAR)
+
+  payments Payment[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("invoices")
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  invoiceId  String        @map("invoice_id")
+  invoice    Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount     Decimal       @db.Decimal(14, 2)
+  method     String?
+  proofPath  String?       @map("proof_path")
+  status     PaymentStatus @default(MENUNGGU_VERIFIKASI)
+  paidAt     DateTime?     @map("paid_at")
+  verifiedAt DateTime?     @map("verified_at")
+  verifiedBy String?       @map("verified_by")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("payments")
+}
+
+model CashTransaction {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  type        CashType
+  category    String?
+  description String?
+  amount      Decimal  @db.Decimal(14, 2)
+  date        DateTime
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("cash_transactions")
+}
+
+model AccountingJournal {
+  id          String   @id @default(uuid())
+  date        DateTime
+  reference   String?
+  description String?
+  debitAccount String? @map("debit_account")
+  creditAccount String? @map("credit_account")
+  amount      Decimal  @db.Decimal(14, 2)
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("accounting_journals")
+}
+
+// ============================== SDM ========================================
+
+model LeaveRequest {
+  id         String      @id @default(uuid())
+  employeeId String      @map("employee_id")
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       LeaveType
+  startDate  DateTime    @map("start_date")
+  endDate    DateTime    @map("end_date")
+  reason     String?
+  status     LeaveStatus @default(DIAJUKAN)
+  approvedBy String?     @map("approved_by")
+  approvedAt DateTime?   @map("approved_at")
+  attachmentPath String? @map("attachment_path")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("leave_requests")
+}
+
+// ===================== SARPRAS & ARSIP =====================================
+
+model Asset {
+  id          String         @id @default(uuid())
+  code        String         @unique
+  name        String
+  category    String?
+  location    String?
+  condition   AssetCondition @default(BAIK)
+  quantity    Int            @default(1)
+  acquiredAt  DateTime?      @map("acquired_at")
+  maintenanceHistory String? @map("maintenance_history")
+
+  documents AssetDocument[]
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("assets")
+}
+
+model AssetDocument {
+  id       String  @id @default(uuid())
+  assetId  String  @map("asset_id")
+  asset    Asset   @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  fileName String  @map("file_name")
+  filePath String  @map("file_path")
+  fileSize Int?    @map("file_size")
+  mimeType String? @map("mime_type")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("asset_documents")
+}
+
+model DigitalArchive {
+  id          String  @id @default(uuid())
+  title       String
+  category    String? // SK_PENDIRIAN, AKREDITASI, dll.
+  description String?
+  fileName    String  @map("file_name")
+  filePath    String  @map("file_path")
+  fileSize    Int?    @map("file_size")
+  mimeType    String? @map("mime_type")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("digital_archives")
+}
+
+// ===================== NOTIFIKASI & AUDIT ==================================
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String?   @map("user_id")
+  title     String
+  message   String
+  type      String?   // INFO, WARNING, TAGIHAN, DEADLINE
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String  @id @default(uuid())
+  userId    String? @map("user_id")
+  action    String  // CREATE, UPDATE, DELETE, LOGIN, dll.
+  module    String?
+  entityId  String? @map("entity_id")
+  detail    String?
+  ipAddress String? @map("ip_address")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@map("audit_logs")
+}
