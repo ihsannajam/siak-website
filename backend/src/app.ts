@@ -16,7 +16,7 @@ export function createApp() {
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
   app.use(
     cors({
-      origin: env.corsOrigin.split(',').map((o) => o.trim()).filter(Boolean),
+      origin: "https://siak-website.vercel.app",
       credentials: true,
     }),
   );
