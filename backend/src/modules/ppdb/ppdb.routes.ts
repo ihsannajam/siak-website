@@ -8,7 +8,7 @@ import { asyncHandler } from '../../common/asyncHandler';
 import { success, created } from '../../common/apiResponse';
 import { getPageParams } from '../../common/pagination';
 import { writeAudit } from '../../common/audit';
-import { upload, getPublicUrl } from '../../common/storage';
+import { upload, uploadToSupabase, getPublicUrl } from '../../common/storage';
 import { ApiError } from '../../common/ApiError';
 import { prisma } from '../../config/prisma';
 
@@ -69,12 +69,13 @@ router.delete('/:id', requirePermission('ppdb.delete'), asyncHandler(async (req,
 // ---- Document upload + verify ----
 router.post('/:id/documents', requirePermission('ppdb.update'), upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) throw ApiError.badRequest('File tidak ditemukan');
+  const supabasePath = await uploadToSupabase(req.file, 'ppdb');
   const doc = await prisma.ppdbDocument.create({
     data: {
       registrationId: req.params.id,
       docType: req.body.docType ?? 'PERSYARATAN',
       fileName: req.file.originalname,
-      filePath: getPublicUrl(req.file.path),
+      filePath: getPublicUrl(supabasePath),
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
       createdBy: req.user!.id,

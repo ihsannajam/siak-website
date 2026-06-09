@@ -9,7 +9,7 @@ import { getPageParams, buildMeta } from '../../common/pagination';
 import { writeAudit } from '../../common/audit';
 import { ApiError } from '../../common/ApiError';
 import { prisma } from '../../config/prisma';
-import { upload, getPublicUrl } from '../../common/storage';
+import { upload, uploadToSupabase, getPublicUrl } from '../../common/storage';
 
 const router = Router();
 router.use(authenticate);
@@ -40,10 +40,11 @@ router.get('/:id', requirePermission('payments.read'), asyncHandler(async (req, 
 // Create payment + upload proof (multipart: file optional, fields invoiceId/amount/method)
 router.post('/', requirePermission('payments.create'), upload.single('file'), asyncHandler(async (req, res) => {
   const parsed = paymentSchema.parse(req.body);
+  const proofPath = req.file ? getPublicUrl(await uploadToSupabase(req.file, 'payments')) : null;
   const payment = await prisma.payment.create({
     data: {
       ...parsed,
-      proofPath: req.file ? getPublicUrl(req.file.path) : null,
+      proofPath,
       status: 'MENUNGGU_VERIFIKASI',
       paidAt: new Date(),
       createdBy: req.user!.id,

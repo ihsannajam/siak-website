@@ -4,7 +4,7 @@ import { createCrudRouter } from '../../common/crudRouter';
 import { authenticate } from '../../middlewares/auth';
 import { requirePermission } from '../../middlewares/rbac';
 import { validate } from '../../middlewares/validate';
-import { upload, getPublicUrl } from '../../common/storage';
+import { upload, uploadToSupabase, getPublicUrl } from '../../common/storage';
 import { asyncHandler } from '../../common/asyncHandler';
 import { success, created } from '../../common/apiResponse';
 import { prisma } from '../../config/prisma';
@@ -56,12 +56,13 @@ router.post(
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) throw ApiError.badRequest('File tidak ditemukan');
+    const supabasePath = await uploadToSupabase(req.file, 'employees');
     const doc = await prisma.employeeDocument.create({
       data: {
         employeeId: req.params.id,
         docType: req.body.docType ?? 'LAINNYA',
         fileName: req.file.originalname,
-        filePath: getPublicUrl(req.file.path),
+        filePath: getPublicUrl(supabasePath),
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
         createdBy: req.user!.id,

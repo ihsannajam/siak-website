@@ -20,7 +20,10 @@
     "seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1064.0",
+    "@aws-sdk/lib-storage": "^3.1064.0",
     "@prisma/client": "^5.22.0",
+    "@supabase/supabase-js": "^2.108.1",
     "bcryptjs": "^2.4.3",
     "compression": "^1.7.5",
     "cors": "^2.8.6",

@@ -28,7 +28,16 @@ export const env = {
   storage: {
     driver: process.env.STORAGE_DRIVER ?? 'local',
     uploadDir: process.env.UPLOAD_DIR ?? 'uploads',
-    maxFileSizeMb: parseInt(process.env.MAX_FILE_SIZE_MB ?? '5', 10),
+    maxFileSizeMb: parseInt(
+      process.env.STORAGE_MAX_FILE_SIZE_MB ?? process.env.MAX_FILE_SIZE_MB ?? '5',
+      10,
+    ),
+    // Supabase S3-compatible storage
+    accessKeyId: process.env.STORAGE_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.STORAGE_SECRET_ACCESS_KEY ?? '',
+    projectRef: process.env.STORAGE_PROJECT_REF ?? '',
+    region: process.env.STORAGE_REGION ?? 'ap-southeast-1',
+    bucketName: process.env.STORAGE_BUCKET_NAME ?? 'uploads',
   },
 
   loginRate: {
