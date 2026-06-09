@@ -40,6 +40,15 @@ export function errorHandler(
       message = 'Kesalahan operasi database';
       details = env.isProd ? undefined : err.message;
     }
+  } else if (
+    err instanceof SyntaxError &&
+    'status' in err &&
+    (err as unknown as { status?: number }).status === 400 &&
+    'body' in err
+  ) {
+    statusCode = 400;
+    message = 'JSON request body tidak valid';
+    details = env.isProd ? undefined : err.message;
   } else if (err instanceof Error) {
     message = env.isProd ? message : err.message;
     details = env.isProd ? undefined : err.stack;

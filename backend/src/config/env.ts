@@ -16,7 +16,11 @@ export const env = {
   apiPrefix: process.env.API_PREFIX ?? '/api',
   corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
 
-  databaseUrl: required('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/siak_annahl?schema=public'),
+  databaseUrl: (() => {
+    const url = required('DATABASE_URL', 'postgresql://postgres:postgres@localhost:5432/siak_annahl?schema=public');
+    if (!process.env.DATABASE_URL) process.env.DATABASE_URL = url;
+    return url;
+  })(),
 
   jwt: {
     accessSecret: required('JWT_ACCESS_SECRET', 'dev-access-secret-change-me'),

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../auth/AuthContext'
 import { getErrorMessage } from '../lib/api'
+import logoLogin from '../assets/logo-vertical.png'
 
 export function LoginPage() {
   const { login, user } = useAuth()
@@ -32,7 +33,9 @@ export function LoginPage() {
   return (
     <div className="login-page">
       <form className="login-card" onSubmit={handleSubmit}>
-        <h1>🕌 SIAK An Nahl</h1>
+        <div className="login-logo-container">
+          <img src={logoLogin} alt="Logo An Nahl ANDA" className="login-logo" />
+        </div>
         <p className="sub">Sistem Informasi Akademik RQ An Nahl</p>
 
         <div className="form-group">
