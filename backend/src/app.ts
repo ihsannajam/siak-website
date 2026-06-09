@@ -30,7 +30,7 @@ const corsOptions: cors.CorsOptions = {
 
     // Allow Vercel preview deployments untuk project frontend
     const isVercelPreview =
-      /^https:\/\/siak-website[\w-]*\.vercel\.app$/.test(origin);
+      /^https:\/\/siak-website.*\.vercel\.app$/.test(origin);
 
     if (isAllowedOrigin || isVercelPreview) {
       return callback(null, true);
