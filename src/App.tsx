@@ -7,6 +7,13 @@ import { DashboardPage } from './pages/DashboardPage'
 import { StudentsPage } from './pages/StudentsPage'
 import { PpdbPage } from './pages/PpdbPage'
 import { SchedulesPage } from './pages/SchedulesPage'
+import { UsersPage } from './pages/UsersPage'
+import { RolesPage } from './pages/RolesPage'
+import { PermissionsPage } from './pages/PermissionsPage'
+import { ReportCardsPage } from './pages/ReportCardsPage'
+import { PaymentsPage } from './pages/PaymentsPage'
+import { LeaveRequestsPage } from './pages/LeaveRequestsPage'
+import { StudentDocumentsPage } from './pages/StudentDocumentsPage'
 import { CrudPage } from './pages/CrudPage'
 import { getModuleConfig } from './config/modules'
 import { API_BASE_URL } from './lib/api'
@@ -56,8 +63,15 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/students" element={<StudentsPage />} />
+              <Route path="/student-documents" element={<StudentDocumentsPage />} />
               <Route path="/ppdb" element={<PpdbPage />} />
               <Route path="/schedules" element={<SchedulesPage />} />
+              <Route path="/users" element={<UsersPage />} />
+              <Route path="/roles" element={<RolesPage />} />
+              <Route path="/permissions" element={<PermissionsPage />} />
+              <Route path="/report-cards" element={<ReportCardsPage />} />
+              <Route path="/payments" element={<PaymentsPage />} />
+              <Route path="/leave-requests" element={<LeaveRequestsPage />} />
               <Route path="/:moduleKey" element={<ModulePage />} />
             </Route>
           </Route>

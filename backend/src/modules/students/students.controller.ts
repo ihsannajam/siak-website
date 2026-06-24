@@ -10,8 +10,13 @@ import { prisma } from '../../config/prisma';
 
 export const studentsController = {
   list: asyncHandler(async (req: Request, res: Response) => {
-    const params = getPageParams(req);
     const status = req.query.status as string | undefined;
+    // ?all=true returns the full list (for dropdowns/selects) without pagination.
+    if (req.query.all === 'true') {
+      const items = await studentsService.findAll(status);
+      return success(res, items);
+    }
+    const params = getPageParams(req);
     const { items, meta } = await studentsService.list(params, status);
     return success(res, items, 'Berhasil', 200, meta);
   }),
