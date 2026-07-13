@@ -12,6 +12,8 @@ import { setupSwagger } from './config/swagger';
 export function createApp() {
   const app = express();
 
+  app.set('trust proxy', 1);
+
   // CORS_ORIGIN supports comma-separated values, e.g.:
   // CORS_ORIGIN=http://localhost:5173,https://siak-website.vercel.app
   const allowedOrigins = (process.env.CORS_ORIGIN ?? 'http://localhost:5173')
