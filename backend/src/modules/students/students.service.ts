@@ -32,6 +32,16 @@ export const studentsService = {
     return { items, meta: buildMeta(total, params) };
   },
 
+  async findAll(status?: string) {
+    const where: Record<string, unknown> = { deletedAt: null };
+    if (status) where.status = status;
+    return prisma.student.findMany({
+      where,
+      orderBy: { fullName: 'asc' },
+      include: { classAssignments: { where: { isActive: true, deletedAt: null }, include: { class: true } } },
+    });
+  },
+
   async getById(id: string) {
     const student = await prisma.student.findFirst({
       where: { id, deletedAt: null },
