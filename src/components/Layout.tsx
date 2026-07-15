@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronDownIcon } from '@heroicons/react/24/outline'
 import { api } from '../lib/api'
 import { useAuth } from '../auth/AuthContext'
 import { icon } from '../lib/icons'
@@ -81,7 +82,7 @@ export function Layout() {
                     <span className="sidebar-group-icon">{icon(visibleItems[0]?.icon ?? 'layout-dashboard')}</span>
                     <span>{group}</span>
                   </span>
-                  <span className="sidebar-group-chevron">▾</span>
+                  <ChevronDownIcon className="sidebar-group-chevron" />
                 </button>
                 <div className={`sidebar-submenu ${expandedGroups[group] ? 'open' : ''}`}>
                   {visibleItems.map((item) => (

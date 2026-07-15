@@ -86,7 +86,7 @@ button {
 }
 
 .sidebar {
-  width: 260px;
+  width: 280px;
   background: #ffffff;
   color: Neutral-400;
   display: flex;
@@ -121,6 +121,7 @@ button {
   cursor: pointer;
 }
 .sidebar-group-title {
+  @apply text-xs font-medium;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -139,7 +140,11 @@ button {
   color: neutral-900;
 }
 .sidebar-group-chevron {
-  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.2s ease;
 }
 .sidebar-group.expanded .sidebar-group-chevron {
