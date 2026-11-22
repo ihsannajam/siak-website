@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Avatar, Button, Chip, Disclosure, Drawer } from '@heroui/react'
+import { Avatar, Button, Chip, Disclosure, Drawer, Spinner } from '@heroui/react'
 import { ArrowRightFromSquare, Bars } from '@gravity-ui/icons'
 import { api } from '../lib/api'
 import { useAuth } from '../auth/AuthContext'
@@ -132,7 +132,15 @@ export function Layout() {
         </header>
 
         <main className="flex-1 p-4 sm:p-6">
-          <Outlet />
+          <Suspense
+            fallback={
+              <div className="flex justify-center py-16" role="status" aria-label="Memuat halaman">
+                <Spinner />
+              </div>
+            }
+          >
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

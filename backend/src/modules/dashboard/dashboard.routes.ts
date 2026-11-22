@@ -24,6 +24,12 @@ async function buildSummary() {
     reportCardsApproved,
     totalAssets,
     brokenAssets,
+    cashIn,
+    cashOut,
+    paidInvoices,
+    unpaidInvoices,
+    recentActivities,
+    tahfidzByQuality,
   ] = await Promise.all([
     prisma.student.count({ where: { deletedAt: null, status: 'AKTIF' } }),
     prisma.ppdbRegistration.count({ where: { deletedAt: null } }),
@@ -36,27 +42,22 @@ async function buildSummary() {
     prisma.reportCard.count({ where: { deletedAt: null, status: 'APPROVED' } }),
     prisma.asset.count({ where: { deletedAt: null } }),
     prisma.asset.count({ where: { deletedAt: null, condition: { in: ['RUSAK_RINGAN', 'RUSAK_BERAT'] } } }),
-  ]);
-
-  // finance aggregates
-  const [cashIn, cashOut, paidInvoices, unpaidInvoices] = await Promise.all([
     prisma.cashTransaction.aggregate({ _sum: { amount: true }, where: { deletedAt: null, type: 'MASUK' } }),
     prisma.cashTransaction.aggregate({ _sum: { amount: true }, where: { deletedAt: null, type: 'KELUAR' } }),
     prisma.invoice.aggregate({ _sum: { amount: true }, where: { deletedAt: null, status: 'LUNAS' } }),
     prisma.invoice.aggregate({ _sum: { amount: true }, where: { deletedAt: null, status: { in: ['BELUM_BAYAR', 'MENUNGGU_VERIFIKASI'] } } }),
+    prisma.auditLog.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+      select: { id: true, action: true, module: true, detail: true, createdAt: true },
+    }),
+    prisma.tahfidzRecord.groupBy({
+      by: ['quality'],
+      where: { deletedAt: null },
+      _count: { _all: true },
+    }),
   ]);
-
-  const recentActivities = await prisma.auditLog.findMany({
-    where: { deletedAt: null },
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-  });
-
-  const tahfidzByQuality = await prisma.tahfidzRecord.groupBy({
-    by: ['quality'],
-    where: { deletedAt: null },
-    _count: { _all: true },
-  });
 
   return {
     students: { active: activeStudents, presentToday: studentPresentToday },

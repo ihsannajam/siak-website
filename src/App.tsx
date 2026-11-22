@@ -1,3 +1,4 @@
+import { lazy } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
 import { Card, Link } from '@heroui/react'
 import { PageHeader } from './components/ui'
@@ -5,24 +6,26 @@ import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { StudentsPage } from './pages/StudentsPage'
-import { StudentFormPage } from './pages/StudentFormPage'
-import { PpdbPage } from './pages/PpdbPage'
-import { SchedulesPage } from './pages/SchedulesPage'
-import { UsersPage } from './pages/UsersPage'
-import { RolesPage } from './pages/RolesPage'
-import { PermissionsPage } from './pages/PermissionsPage'
-import { ReportCardsPage } from './pages/ReportCardsPage'
-import { PaymentsPage } from './pages/PaymentsPage'
-import { LeaveRequestsPage } from './pages/LeaveRequestsPage'
-import { StudentDocumentsPage } from './pages/StudentDocumentsPage'
-import { SchoolProfilePage } from './pages/SchoolProfilePage'
-import { EmployeesPage } from './pages/EmployeesPage'
-import { EmployeeFormPage } from './pages/EmployeeFormPage'
-import { CrudPage } from './pages/CrudPage'
 import { getModuleConfig } from './config/modules'
 import { API_BASE_URL } from './lib/api'
+
+// Tiap halaman diunduh saat dibuka, supaya unduhan awal aplikasi tetap kecil.
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const StudentsPage = lazy(() => import('./pages/StudentsPage').then((m) => ({ default: m.StudentsPage })))
+const StudentFormPage = lazy(() => import('./pages/StudentFormPage').then((m) => ({ default: m.StudentFormPage })))
+const PpdbPage = lazy(() => import('./pages/PpdbPage').then((m) => ({ default: m.PpdbPage })))
+const SchedulesPage = lazy(() => import('./pages/SchedulesPage').then((m) => ({ default: m.SchedulesPage })))
+const UsersPage = lazy(() => import('./pages/UsersPage').then((m) => ({ default: m.UsersPage })))
+const RolesPage = lazy(() => import('./pages/RolesPage').then((m) => ({ default: m.RolesPage })))
+const PermissionsPage = lazy(() => import('./pages/PermissionsPage').then((m) => ({ default: m.PermissionsPage })))
+const ReportCardsPage = lazy(() => import('./pages/ReportCardsPage').then((m) => ({ default: m.ReportCardsPage })))
+const PaymentsPage = lazy(() => import('./pages/PaymentsPage').then((m) => ({ default: m.PaymentsPage })))
+const LeaveRequestsPage = lazy(() => import('./pages/LeaveRequestsPage').then((m) => ({ default: m.LeaveRequestsPage })))
+const StudentDocumentsPage = lazy(() => import('./pages/StudentDocumentsPage').then((m) => ({ default: m.StudentDocumentsPage })))
+const SchoolProfilePage = lazy(() => import('./pages/SchoolProfilePage').then((m) => ({ default: m.SchoolProfilePage })))
+const EmployeesPage = lazy(() => import('./pages/EmployeesPage').then((m) => ({ default: m.EmployeesPage })))
+const EmployeeFormPage = lazy(() => import('./pages/EmployeeFormPage').then((m) => ({ default: m.EmployeeFormPage })))
+const CrudPage = lazy(() => import('./pages/CrudPage').then((m) => ({ default: m.CrudPage })))
 
 // URL Swagger backend: ganti '/api' di akhir base URL menjadi '/api-docs'.
 const apiDocsUrl = API_BASE_URL.replace(/\/api\/?$/, '') + '/api-docs'
