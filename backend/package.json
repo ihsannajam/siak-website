@@ -14,7 +14,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:reset": "prisma migrate reset --force",
     "db:seed": "ts-node prisma/seed.ts",
-    "storage:migrate-private-files": "ts-node --transpile-only scripts/migrate-private-files.ts",
+    "storage:migrate-private-files": "ts-node --project scripts/tsconfig.json --transpile-only scripts/migrate-private-files.ts",
     "lint": "echo \"(configure eslint as needed)\""
   },
   "prisma": {

@@ -85,7 +85,8 @@ export async function migrate(apply: boolean, manifestPath: string) {
   const work: { target: Target; rows: Record<string, any>[] }[] = [];
   for (const target of TARGETS) {
     const rows: Record<string, any>[] = await delegate(target.model).findMany({
-      where: { [target.field]: { not: null } },
+      // filePath wajib terisi di schema, jadi Prisma menolak filter `not: null`.
+      where: target.field === 'filePath' ? {} : { [target.field]: { not: null } },
       select: { id: true, [target.owner]: true, [target.field]: true },
     });
     const legacy = rows.filter((r) => isLegacy(r[target.field]));
