@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
+import { Card } from '@heroui/react'
+import { Loader, PageHeader, StatusChip, type ChipColor } from '../components/ui'
 
 type Row = Record<string, any>
 interface PermResponse {
@@ -8,11 +10,11 @@ interface PermResponse {
   grouped: Record<string, Row[]>
 }
 
-const ACTION_PILL: Record<string, string> = {
-  read: 'pill-blue',
-  create: 'pill-green',
-  update: 'pill-yellow',
-  delete: 'pill-red',
+const ACTION_COLOR: Record<string, ChipColor> = {
+  read: 'info',
+  create: 'success',
+  update: 'warning',
+  delete: 'danger',
 }
 
 export function PermissionsPage() {
@@ -28,39 +30,30 @@ export function PermissionsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Manajemen Permission</h1>
-      </div>
-
-      <div className="card">
-        <div className="card-body">
-          <p style={{ marginTop: 0, color: 'var(--muted)' }}>
+      <PageHeader
+        title="Manajemen Permission"
+        description={
+          <>
             Daftar seluruh hak akses sistem (dibentuk dari <code>modul.aksi</code>). Penetapan permission ke role
             dilakukan di menu <strong>Manajemen Role</strong>.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+      />
 
-      {permsQuery.isLoading && (
-        <div className="card">
-          <div className="card-body empty">Memuat…</div>
-        </div>
-      )}
+      {permsQuery.isLoading && <Loader />}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {Object.entries(grouped).map(([module, perms]) => (
-          <div key={module} className="card">
-            <div className="card-body">
-              <h4 style={{ margin: '0 0 10px' }}>{module}</h4>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {perms.map((p) => (
-                  <span key={p.id} className={`pill ${ACTION_PILL[p.action] ?? 'pill-gray'}`} title={p.description}>
-                    {p.action}
-                  </span>
-                ))}
-              </div>
+          <Card key={module} className="gap-3 p-4">
+            <Card.Title>{module}</Card.Title>
+            <div className="flex flex-wrap gap-1.5">
+              {perms.map((p) => (
+                <span key={p.id} title={p.description}>
+                  <StatusChip color={ACTION_COLOR[p.action]}>{p.action}</StatusChip>
+                </span>
+              ))}
             </div>
-          </div>
+          </Card>
         ))}
       </div>
     </div>

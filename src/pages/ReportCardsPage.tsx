@@ -1,18 +1,24 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '@heroui/react'
+import { ArrowDownToLine, Check, Lock, PaperPlane, Plus } from '@gravity-ui/icons'
+import {
+  DataTable, FormGrid, FormStack, PageHeader, Panel, RowActions, SelectInput, StatusChip,
+  TablePager, TextAreaInput, type ChipColor,
+} from '../components/ui'
 
 type Row = Record<string, any>
 
-const STATUS_PILL: Record<string, string> = {
-  DRAFT: 'pill-gray',
-  SUBMITTED: 'pill-yellow',
-  LOCKED: 'pill-blue',
-  APPROVED: 'pill-green',
+const STATUS_COLOR: Record<string, ChipColor> = {
+  DRAFT: 'default',
+  SUBMITTED: 'warning',
+  LOCKED: 'info',
+  APPROVED: 'success',
 }
 
 export function ReportCardsPage() {
@@ -70,7 +76,7 @@ export function ReportCardsPage() {
       setForm({})
       qc.invalidateQueries({ queryKey: ['report-cards'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const actionMutation = useMutation({
@@ -79,7 +85,7 @@ export function ReportCardsPage() {
       toast.success('Status rapor diperbarui')
       qc.invalidateQueries({ queryKey: ['report-cards'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   async function downloadPdf(row: Row) {
@@ -92,7 +98,7 @@ export function ReportCardsPage() {
       a.click()
       URL.revokeObjectURL(url)
     } catch (e) {
-      toast.error(getErrorMessage(e))
+      toast.danger(getErrorMessage(e))
     }
   }
 
@@ -100,110 +106,46 @@ export function ReportCardsPage() {
   const meta = listQuery.data?.meta
 
   function submit() {
-    if (!form.studentId) return toast.error('Siswa wajib dipilih')
-    if (!form.semesterId) return toast.error('Semester wajib dipilih')
+    if (!form.studentId) return toast.danger('Siswa wajib dipilih')
+    if (!form.semesterId) return toast.danger('Semester wajib dipilih')
     generateMutation.mutate()
   }
 
   return (
     <div>
-      <div className="page-header">
-        <h1>E-Rapor</h1>
-        {canCreate && (
-          <button className="btn btn-primary" onClick={() => setGenOpen(true)}>
-            + Generate E-Rapor
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="E-Rapor"
+        actions={canCreate && <Button onPress={() => setGenOpen(true)}><Plus />Generate E-Rapor</Button>}
+      />
 
-      <div className="card">
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Siswa</th>
-                <th>Kelas</th>
-                <th>Rata-rata</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    Memuat…
-                  </td>
-                </tr>
+      <Panel>
+        <DataTable
+          label="Daftar rapor"
+          columns={[{ label: 'Siswa' }, { label: 'Kelas' }, { label: 'Rata-rata' }, { label: 'Status' }, { label: 'Aksi', align: 'right' }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          emptyText="Belum ada rapor"
+          renderRow={(r) => [
+            r.student?.fullName ?? '-',
+            r.class?.name ?? '-',
+            r.averageScore ?? '-',
+            <StatusChip color={STATUS_COLOR[r.status]}>{r.status}</StatusChip>,
+            <RowActions>
+              <Button size="sm" variant="tertiary" onPress={() => downloadPdf(r)}><ArrowDownToLine />PDF</Button>
+              {canUpdate && r.status === 'DRAFT' && (
+                <Button size="sm" onPress={() => actionMutation.mutate({ id: r.id, action: 'submit' })}><PaperPlane />Submit</Button>
               )}
-              {!listQuery.isLoading && items.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    Belum ada rapor
-                  </td>
-                </tr>
+              {canUpdate && r.status === 'SUBMITTED' && (
+                <Button size="sm" onPress={() => actionMutation.mutate({ id: r.id, action: 'lock' })}><Lock />Kunci</Button>
               )}
-              {items.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.student?.fullName ?? '-'}</td>
-                  <td>{r.class?.name ?? '-'}</td>
-                  <td>{r.averageScore ?? '-'}</td>
-                  <td>
-                    <span className={`pill ${STATUS_PILL[r.status] ?? 'pill-gray'}`}>{r.status}</span>
-                  </td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    <button className="btn btn-sm btn-secondary" onClick={() => downloadPdf(r)}>
-                      PDF
-                    </button>{' '}
-                    {canUpdate && r.status === 'DRAFT' && (
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => actionMutation.mutate({ id: r.id, action: 'submit' })}
-                      >
-                        Submit
-                      </button>
-                    )}
-                    {canUpdate && r.status === 'SUBMITTED' && (
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => actionMutation.mutate({ id: r.id, action: 'lock' })}
-                      >
-                        Kunci
-                      </button>
-                    )}
-                    {canUpdate && r.status === 'LOCKED' && (
-                      <button
-                        className="btn btn-sm btn-primary"
-                        onClick={() => actionMutation.mutate({ id: r.id, action: 'approve' })}
-                      >
-                        Setujui
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {meta && meta.totalPages > 1 && (
-          <div className="pagination">
-            <button className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </button>
-            <span style={{ fontSize: 13 }}>
-              Hal {meta.page} / {meta.totalPages} ({meta.total})
-            </span>
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={page >= meta.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next ›
-            </button>
-          </div>
-        )}
-      </div>
+              {canUpdate && r.status === 'LOCKED' && (
+                <Button size="sm" onPress={() => actionMutation.mutate({ id: r.id, action: 'approve' })}><Check />Setujui</Button>
+              )}
+            </RowActions>,
+          ]}
+        />
+        <TablePager meta={meta} page={page} onChange={setPage} />
+      </Panel>
 
       <Modal
         open={genOpen}
@@ -211,85 +153,28 @@ export function ReportCardsPage() {
         onClose={() => setGenOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setGenOpen(false)}>
-              Batal
-            </button>
-            <button className="btn btn-primary" onClick={submit} disabled={generateMutation.isPending}>
+            <Button variant="tertiary" onPress={() => setGenOpen(false)}>Batal</Button>
+            <Button onPress={submit} isPending={generateMutation.isPending}>
               {generateMutation.isPending ? 'Memproses…' : 'Generate'}
-            </button>
+            </Button>
           </>
         }
       >
-        <p style={{ marginTop: 0, fontSize: 13, color: 'var(--muted)' }}>
-          Nilai siswa pada semester terpilih akan diakumulasikan menjadi rata-rata rapor.
-        </p>
-        <div className="form-group">
-          <label>
-            Siswa <span className="req">*</span>
-          </label>
-          <select
-            className="select"
-            value={form.studentId ?? ''}
-            onChange={(e) => setForm({ ...form, studentId: e.target.value })}
-          >
-            <option value="">— Pilih —</option>
-            {(studentsQuery.data ?? []).map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.fullName}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid-2">
-          <div className="form-group">
-            <label>
-              Semester <span className="req">*</span>
-            </label>
-            <select
-              className="select"
-              value={form.semesterId ?? ''}
-              onChange={(e) => setForm({ ...form, semesterId: e.target.value })}
-            >
-              <option value="">— Pilih —</option>
-              {(semestersQuery.data ?? []).map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.type} {s.academicYear?.name ?? ''}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Kelas</label>
-            <select
-              className="select"
-              value={form.classId ?? ''}
-              onChange={(e) => setForm({ ...form, classId: e.target.value })}
-            >
-              <option value="">— Pilih —</option>
-              {(classesQuery.data ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="form-group">
-          <label>Catatan Sikap</label>
-          <textarea
-            rows={2}
-            value={form.attitudeNote ?? ''}
-            onChange={(e) => setForm({ ...form, attitudeNote: e.target.value })}
-          />
-        </div>
-        <div className="form-group">
-          <label>Catatan Wali Kelas</label>
-          <textarea
-            rows={2}
-            value={form.teacherNote ?? ''}
-            onChange={(e) => setForm({ ...form, teacherNote: e.target.value })}
-          />
-        </div>
+        <FormStack>
+          <p className="text-[13px] text-muted">
+            Nilai siswa pada semester terpilih akan diakumulasikan menjadi rata-rata rapor.
+          </p>
+          <SelectInput label="Siswa" required value={form.studentId} onChange={(v) => setForm({ ...form, studentId: v })}
+            options={(studentsQuery.data ?? []).map((s) => ({ value: s.id, label: s.fullName }))} />
+          <FormGrid>
+            <SelectInput label="Semester" required value={form.semesterId} onChange={(v) => setForm({ ...form, semesterId: v })}
+              options={(semestersQuery.data ?? []).map((s) => ({ value: s.id, label: `${s.type} ${s.academicYear?.name ?? ''}` }))} />
+            <SelectInput label="Kelas" value={form.classId} onChange={(v) => setForm({ ...form, classId: v })}
+              options={(classesQuery.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
+          </FormGrid>
+          <TextAreaInput label="Catatan Sikap" rows={2} value={form.attitudeNote} onChange={(v) => setForm({ ...form, attitudeNote: v })} />
+          <TextAreaInput label="Catatan Wali Kelas" rows={2} value={form.teacherNote} onChange={(v) => setForm({ ...form, teacherNote: v })} />
+        </FormStack>
       </Modal>
     </div>
   )

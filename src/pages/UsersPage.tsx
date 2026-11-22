@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '@heroui/react'
+import { Plus } from '@gravity-ui/icons'
+import {
+  CheckInput, DataTable, EditDeleteActions, FormGrid, FormStack, PageHeader, Panel, SearchBox,
+  SectionTitle, StatusChip, TablePager, TextInput, Toolbar,
+} from '../components/ui'
 
 type Row = Record<string, any>
 
@@ -57,7 +63,7 @@ export function UsersPage() {
       setModalOpen(false)
       qc.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -67,7 +73,7 @@ export function UsersPage() {
       setDeleteId(null)
       qc.invalidateQueries({ queryKey: ['users'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   function openCreate() {
@@ -97,119 +103,55 @@ export function UsersPage() {
   }
 
   function submit() {
-    if (!form.username || !form.email || !form.fullName) return toast.error('Username, email, dan nama wajib diisi')
-    if (!editing && !form.password) return toast.error('Password wajib diisi untuk user baru')
-    if (!(form.roleIds ?? []).length) return toast.error('Pilih minimal satu role')
+    if (!form.username || !form.email || !form.fullName) return toast.danger('Username, email, dan nama wajib diisi')
+    if (!editing && !form.password) return toast.danger('Password wajib diisi untuk user baru')
+    if (!(form.roleIds ?? []).length) return toast.danger('Pilih minimal satu role')
     saveMutation.mutate()
   }
 
   const items = listQuery.data?.data ?? []
   const meta = listQuery.data?.meta
 
+  const bind = (name: string) => ({
+    value: form[name],
+    onChange: (v: string) => setForm({ ...form, [name]: v }),
+  })
+
   return (
     <div>
-      <div className="page-header">
-        <h1>Manajemen User</h1>
-        {canCreate && (
-          <button className="btn btn-primary" onClick={openCreate}>
-            + Tambah User
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Manajemen User"
+        actions={canCreate && <Button onPress={openCreate}><Plus />Tambah User</Button>}
+      />
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            className="input search-input"
-            placeholder="Cari username / nama / email…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-          />
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Nama</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Aktif</th>
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && (
-                <tr>
-                  <td colSpan={6} className="empty">
-                    Memuat…
-                  </td>
-                </tr>
-              )}
-              {!listQuery.isLoading && items.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="empty">
-                    Belum ada user
-                  </td>
-                </tr>
-              )}
-              {items.map((u) => (
-                <tr key={u.id}>
-                  <td>{u.username}</td>
-                  <td>{u.fullName}</td>
-                  <td>{u.email}</td>
-                  <td>
-                    {(u.userRoles ?? []).map((ur: Row) => (
-                      <span key={ur.role.id} className="pill pill-blue" style={{ marginRight: 4 }}>
-                        {ur.role.displayName ?? ur.role.name}
-                      </span>
-                    ))}
-                  </td>
-                  <td>
-                    <span className={`pill ${u.isActive ? 'pill-green' : 'pill-red'}`}>
-                      {u.isActive ? 'Aktif' : 'Nonaktif'}
-                    </span>
-                  </td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {canUpdate && (
-                      <button className="btn btn-sm btn-secondary" onClick={() => openEdit(u)}>
-                        Edit
-                      </button>
-                    )}{' '}
-                    {canDelete && (
-                      <button className="btn btn-sm btn-danger" onClick={() => setDeleteId(u.id)}>
-                        Hapus
-                      </button>
-                    )}
-                  </td>
-                </tr>
+      <Panel>
+        <Toolbar>
+          <SearchBox placeholder="Cari username / nama / email…" value={search} onChange={(v) => { setSearch(v); setPage(1) }} />
+        </Toolbar>
+        <DataTable
+          label="Daftar user"
+          columns={[{ label: 'Username' }, { label: 'Nama' }, { label: 'Email' }, { label: 'Role' }, { label: 'Aktif' }, { label: 'Aksi', align: 'right' }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          emptyText="Belum ada user"
+          renderRow={(u) => [
+            u.username,
+            u.fullName,
+            u.email,
+            <div className="flex flex-wrap gap-1">
+              {(u.userRoles ?? []).map((ur: Row) => (
+                <StatusChip key={ur.role.id} color="info">{ur.role.displayName ?? ur.role.name}</StatusChip>
               ))}
-            </tbody>
-          </table>
-        </div>
-
-        {meta && meta.totalPages > 1 && (
-          <div className="pagination">
-            <button className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </button>
-            <span style={{ fontSize: 13 }}>
-              Hal {meta.page} / {meta.totalPages} ({meta.total})
-            </span>
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={page >= meta.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next ›
-            </button>
-          </div>
-        )}
-      </div>
+            </div>,
+            <StatusChip color={u.isActive ? 'success' : 'danger'}>{u.isActive ? 'Aktif' : 'Nonaktif'}</StatusChip>,
+            <EditDeleteActions
+              onEdit={canUpdate ? () => openEdit(u) : undefined}
+              onDelete={canDelete ? () => setDeleteId(u.id) : undefined}
+            />,
+          ]}
+        />
+        <TablePager meta={meta} page={page} onChange={setPage} />
+      </Panel>
 
       <Modal
         open={modalOpen}
@@ -217,88 +159,40 @@ export function UsersPage() {
         onClose={() => setModalOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>
-              Batal
-            </button>
-            <button className="btn btn-primary" onClick={submit} disabled={saveMutation.isPending}>
+            <Button variant="tertiary" onPress={() => setModalOpen(false)}>Batal</Button>
+            <Button onPress={submit} isPending={saveMutation.isPending}>
               {saveMutation.isPending ? 'Menyimpan…' : 'Simpan'}
-            </button>
+            </Button>
           </>
         }
       >
-        <div className="grid-2">
-          <div className="form-group">
-            <label>
-              Username <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              value={form.username ?? ''}
-              onChange={(e) => setForm({ ...form, username: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>
-              Nama Lengkap <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              value={form.fullName ?? ''}
-              onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="grid-2">
-          <div className="form-group">
-            <label>
-              Email <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              type="email"
-              value={form.email ?? ''}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>
-              Password {editing ? '(kosongkan jika tidak diubah)' : <span className="req">*</span>}
-            </label>
-            <input
-              className="input"
+        <FormStack>
+          <FormGrid>
+            <TextInput label="Username" required {...bind('username')} />
+            <TextInput label="Nama Lengkap" required {...bind('fullName')} />
+            <TextInput label="Email" type="email" required {...bind('email')} />
+            <TextInput
+              label={editing ? 'Password (kosongkan jika tidak diubah)' : 'Password'}
               type="password"
-              value={form.password ?? ''}
-              onChange={(e) => setForm({ ...form, password: e.target.value })}
+              required={!editing}
+              {...bind('password')}
             />
-          </div>
-        </div>
-
-        <div className="form-group">
-          <label>
-            Role <span className="req">*</span>
-          </label>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
-            {(rolesQuery.data ?? []).map((r) => (
-              <label key={r.id} className="checkbox-row" style={{ margin: 0 }}>
-                <input
-                  type="checkbox"
+          </FormGrid>
+          <div className="flex flex-col gap-2">
+            <SectionTitle>Role <span className="text-danger">*</span></SectionTitle>
+            <div className="flex flex-wrap gap-4">
+              {(rolesQuery.data ?? []).map((r) => (
+                <CheckInput
+                  key={r.id}
+                  label={r.displayName ?? r.name}
                   checked={(form.roleIds ?? []).includes(r.id)}
                   onChange={() => toggleRole(r.id)}
                 />
-                {r.displayName ?? r.name}
-              </label>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={!!form.isActive}
-            onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
-          />
-          <label style={{ margin: 0 }}>Akun aktif</label>
-        </div>
+          <CheckInput label="Akun aktif" checked={!!form.isActive} onChange={(v) => setForm({ ...form, isActive: v })} />
+        </FormStack>
       </Modal>
 
       <ConfirmDialog

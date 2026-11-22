@@ -1,7 +1,14 @@
+import type { ComponentType, ReactNode, SVGProps } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Card } from '@heroui/react'
+import {
+  Briefcase, ChartColumn, CircleCheck, ClockArrowRotateLeft, Fingerprint, GraduationCap,
+  PersonPlus, SealCheck, Wallet,
+} from '@gravity-ui/icons'
 import { api } from '../lib/api'
 import { useAuth } from '../auth/AuthContext'
 import type { ApiResponse } from '../lib/types'
+import { DataTable, Loader, PageHeader, Panel, StatusChip } from '../components/ui'
 
 interface DashboardData {
   students: { active: number; presentToday: number }
@@ -21,16 +28,43 @@ interface DashboardData {
   recentActivities: { id: string; action: string; module?: string; detail?: string; createdAt: string }[]
 }
 
+type IconType = ComponentType<SVGProps<SVGSVGElement>>
+
 const rupiah = (n: number) =>
   new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 0 }).format(n)
 
-function Stat({ icon, label, value }: { icon: string; label: string; value: string | number }) {
+function Stat({ icon: Icon, label, value }: { icon: IconType; label: string; value: string | number }) {
   return (
-    <div className="stat-card">
-      <div className="icon">{icon}</div>
-      <div className="label">{label}</div>
-      <div className="value">{value}</div>
+    <Card className="flex-row items-center gap-4 p-4">
+      <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-[#b86500]">
+        <Icon className="size-5" aria-hidden />
+      </div>
+      <div className="min-w-0">
+        <div className="text-[12.5px] text-muted">{label}</div>
+        <div className="text-2xl font-black tabular-nums">{value}</div>
+      </div>
+    </Card>
+  )
+}
+
+function InfoRow({ label, children, tone = '' }: { label: string; children: ReactNode; tone?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-separator py-2.5 last:border-0">
+      <span className="text-muted">{label}</span>
+      <strong className={`tabular-nums ${tone}`}>{children}</strong>
     </div>
+  )
+}
+
+function SectionCard({ icon: Icon, title, children }: { icon: IconType; title: string; children: ReactNode }) {
+  return (
+    <Card>
+      <Card.Header className="flex-row items-center gap-2">
+        <Icon className="size-4 text-muted" aria-hidden />
+        <Card.Title>{title}</Card.Title>
+      </Card.Header>
+      <Card.Content className="gap-0">{children}</Card.Content>
+    </Card>
   )
 }
 
@@ -49,100 +83,71 @@ export function DashboardPage() {
   if (!hasPermission('dashboard.read')) {
     return (
       <div>
-        <div className="page-header">
-          <h1>Selamat datang, {user?.fullName} 👋</h1>
-        </div>
-        <div className="card">
-          <div className="card-body">Silakan pilih menu di samping untuk mulai bekerja.</div>
-        </div>
+        <PageHeader title={`Selamat datang, ${user?.fullName ?? ''}`} />
+        <Card>
+          <Card.Content>Silakan pilih menu di samping untuk mulai bekerja.</Card.Content>
+        </Card>
       </div>
     )
   }
 
-  if (isLoading || !data) return <div className="page-loader">Memuat dashboard…</div>
+  if (isLoading || !data) return <Loader label="Memuat dashboard…" />
 
   return (
-    <div>
-      <div className="page-header">
-        <h1>Dashboard</h1>
+    <div className="flex flex-col gap-4">
+      <PageHeader title="Dashboard" description={`Selamat datang kembali, ${user?.fullName ?? ''}`} />
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <Stat icon={GraduationCap} label="Siswa Aktif" value={data.students.active} />
+        <Stat icon={PersonPlus} label="Pendaftar PPDB" value={data.ppdb.total} />
+        <Stat icon={CircleCheck} label="PPDB Diterima" value={data.ppdb.accepted} />
+        <Stat icon={Briefcase} label="Total Pegawai" value={data.employees.total} />
+        <Stat icon={ChartColumn} label="Hadir Siswa (hari ini)" value={data.students.presentToday} />
+        <Stat icon={Fingerprint} label="Hadir Pegawai (hari ini)" value={data.employees.presentToday} />
       </div>
 
-      <div className="stat-grid">
-        <Stat icon="🎓" label="Siswa Aktif" value={data.students.active} />
-        <Stat icon="➕" label="Pendaftar PPDB" value={data.ppdb.total} />
-        <Stat icon="✅" label="PPDB Diterima" value={data.ppdb.accepted} />
-        <Stat icon="💼" label="Total Pegawai" value={data.employees.total} />
-        <Stat icon="📊" label="Hadir Siswa (hari ini)" value={data.students.presentToday} />
-        <Stat icon="🔏" label="Hadir Pegawai (hari ini)" value={data.employees.presentToday} />
-      </div>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <SectionCard icon={Wallet} title="Ringkasan Keuangan">
+          <InfoRow label="Kas Masuk" tone="text-success">{rupiah(data.finance.cashIn)}</InfoRow>
+          <InfoRow label="Kas Keluar" tone="text-danger">{rupiah(data.finance.cashOut)}</InfoRow>
+          <InfoRow label="Saldo Kas">{rupiah(data.finance.balance)}</InfoRow>
+          <InfoRow label="Tunggakan" tone="text-warning">{rupiah(data.finance.outstanding)}</InfoRow>
+          <InfoRow label="Pembayaran menunggu verifikasi">{data.finance.pendingPayments}</InfoRow>
+        </SectionCard>
 
-      <div className="grid-2">
-        <div className="card">
-          <div className="toolbar">
-            <strong>💰 Ringkasan Keuangan</strong>
-          </div>
-          <div className="card-body">
-            <p>Kas Masuk: <strong style={{ color: 'var(--primary)' }}>{rupiah(data.finance.cashIn)}</strong></p>
-            <p>Kas Keluar: <strong style={{ color: 'var(--danger)' }}>{rupiah(data.finance.cashOut)}</strong></p>
-            <p>Saldo Kas: <strong>{rupiah(data.finance.balance)}</strong></p>
-            <p>Tunggakan: <strong style={{ color: 'var(--warning)' }}>{rupiah(data.finance.outstanding)}</strong></p>
-            <p>Pembayaran menunggu verifikasi: <strong>{data.finance.pendingPayments}</strong></p>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="toolbar">
-            <strong>📑 Akademik & Aset</strong>
-          </div>
-          <div className="card-body">
-            <p>Rapor belum selesai: <strong>{data.grades.reportCardsPending}</strong></p>
-            <p>Rapor disetujui: <strong>{data.grades.reportCardsApproved}</strong></p>
-            <p>Total aset: <strong>{data.assets.total}</strong> (rusak: {data.assets.broken})</p>
-            <p style={{ marginBottom: 4 }}>Capaian Tahfidz:</p>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {data.tahfidz.length === 0 && <span className="pill pill-gray">Belum ada data</span>}
+        <SectionCard icon={SealCheck} title="Akademik & Aset">
+          <InfoRow label="Rapor belum selesai">{data.grades.reportCardsPending}</InfoRow>
+          <InfoRow label="Rapor disetujui">{data.grades.reportCardsApproved}</InfoRow>
+          <InfoRow label="Total aset">{data.assets.total} (rusak: {data.assets.broken})</InfoRow>
+          <div className="pt-3">
+            <div className="mb-2 text-muted">Capaian Tahfidz</div>
+            <div className="flex flex-wrap gap-2">
+              {data.tahfidz.length === 0 && <StatusChip>Belum ada data</StatusChip>}
               {data.tahfidz.map((t) => (
-                <span key={t.quality} className="pill pill-green">
-                  {t.quality}: {t.count}
-                </span>
+                <StatusChip key={t.quality} color="success">{t.quality}: {t.count}</StatusChip>
               ))}
             </div>
           </div>
-        </div>
+        </SectionCard>
       </div>
 
-      <div className="card" style={{ marginTop: 16 }}>
-        <div className="toolbar">
-          <strong>🕘 Aktivitas Terbaru</strong>
+      <Panel>
+        <div className="flex items-center gap-2 border-b border-separator p-4 font-bold">
+          <ClockArrowRotateLeft className="size-4 text-muted" aria-hidden /> Aktivitas Terbaru
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Waktu</th>
-                <th>Aksi</th>
-                <th>Modul</th>
-                <th>Detail</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.recentActivities.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="empty">Belum ada aktivitas</td>
-                </tr>
-              )}
-              {data.recentActivities.map((a) => (
-                <tr key={a.id}>
-                  <td>{new Date(a.createdAt).toLocaleString('id-ID')}</td>
-                  <td><span className="pill pill-blue">{a.action}</span></td>
-                  <td>{a.module ?? '-'}</td>
-                  <td>{a.detail ?? '-'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        <DataTable
+          label="Aktivitas terbaru"
+          columns={[{ label: 'Waktu' }, { label: 'Aksi' }, { label: 'Modul' }, { label: 'Detail' }]}
+          rows={data.recentActivities}
+          emptyText="Belum ada aktivitas"
+          renderRow={(a) => [
+            new Date(a.createdAt).toLocaleString('id-ID'),
+            <StatusChip color="info">{a.action}</StatusChip>,
+            a.module ?? '-',
+            a.detail ?? '-',
+          ]}
+        />
+      </Panel>
     </div>
   )
 }

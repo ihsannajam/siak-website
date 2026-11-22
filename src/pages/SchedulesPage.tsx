@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/AuthContext'
+import { Alert, Button, Separator } from '@heroui/react'
+import { Megaphone, Plus, TrashBin } from '@gravity-ui/icons'
+import {
+  DataTable, FormGrid, FormStack, IconAction, Loader, PageHeader, Panel, RowActions, SectionTitle,
+  SelectInput, StatusChip, TextInput,
+} from '../components/ui'
 
 type Row = Record<string, any>
 
@@ -45,63 +51,50 @@ export function SchedulesPage() {
       setForm({})
       qc.invalidateQueries({ queryKey: ['schedules'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const items = listQuery.data ?? []
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Jadwal Pelajaran</h1>
-        {canCreate && <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>+ Buat Jadwal</button>}
-      </div>
+      <PageHeader
+        title="Jadwal Pelajaran"
+        actions={canCreate && <Button onPress={() => setCreateOpen(true)}><Plus />Buat Jadwal</Button>}
+      />
 
-      <div className="card">
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr><th>Nama Jadwal</th><th>Status</th><th>Dipublikasi</th><th style={{ textAlign: 'right' }}>Aksi</th></tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && <tr><td colSpan={4} className="empty">Memuat…</td></tr>}
-              {!listQuery.isLoading && items.length === 0 && <tr><td colSpan={4} className="empty">Belum ada jadwal</td></tr>}
-              {items.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.name}</td>
-                  <td><span className={`pill ${s.status === 'PUBLISHED' ? 'pill-green' : 'pill-gray'}`}>{s.status}</span></td>
-                  <td>{s.publishedAt ? new Date(s.publishedAt).toLocaleDateString('id-ID') : '-'}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-sm btn-secondary" onClick={() => setDetailId(s.id)}>Kelola Slot</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Panel>
+        <DataTable
+          label="Daftar jadwal"
+          columns={[{ label: 'Nama Jadwal' }, { label: 'Status' }, { label: 'Dipublikasi' }, { label: 'Aksi', align: 'right' }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          emptyText="Belum ada jadwal"
+          renderRow={(s) => [
+            s.name,
+            <StatusChip color={s.status === 'PUBLISHED' ? 'success' : 'default'}>{s.status}</StatusChip>,
+            s.publishedAt ? new Date(s.publishedAt).toLocaleDateString('id-ID') : '-',
+            <RowActions><Button size="sm" variant="tertiary" onPress={() => setDetailId(s.id)}>Kelola Slot</Button></RowActions>,
+          ]}
+        />
+      </Panel>
 
       <Modal open={createOpen} title="Buat Jadwal" onClose={() => setCreateOpen(false)}
         footer={<>
-          <button className="btn btn-secondary" onClick={() => setCreateOpen(false)}>Batal</button>
-          <button className="btn btn-primary" disabled={createMutation.isPending}
-            onClick={() => {
-              if (!form.name || !form.academicYearId || !form.semesterId) return toast.error('Lengkapi semua field')
+          <Button variant="tertiary" onPress={() => setCreateOpen(false)}>Batal</Button>
+          <Button isPending={createMutation.isPending}
+            onPress={() => {
+              if (!form.name || !form.academicYearId || !form.semesterId) return toast.danger('Lengkapi semua field')
               createMutation.mutate(form)
-            }}>Simpan</button>
+            }}>Simpan</Button>
         </>}>
-        <div className="form-group"><label>Nama Jadwal <span className="req">*</span></label>
-          <input className="input" value={form.name ?? ''} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Jadwal Ganjil 2025/2026" /></div>
-        <div className="form-group"><label>Tahun Ajaran <span className="req">*</span></label>
-          <select className="select" value={form.academicYearId ?? ''} onChange={(e) => setForm({ ...form, academicYearId: e.target.value })}>
-            <option value="">— Pilih —</option>
-            {(ayQ.data ?? []).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-          </select></div>
-        <div className="form-group"><label>Semester <span className="req">*</span></label>
-          <select className="select" value={form.semesterId ?? ''} onChange={(e) => setForm({ ...form, semesterId: e.target.value })}>
-            <option value="">— Pilih —</option>
-            {(semQ.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.type} — {s.academicYear?.name ?? ''}</option>)}
-          </select></div>
+        <FormStack>
+          <TextInput label="Nama Jadwal" required placeholder="Jadwal Ganjil 2025/2026" value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+          <SelectInput label="Tahun Ajaran" required value={form.academicYearId} onChange={(v) => setForm({ ...form, academicYearId: v })}
+            options={(ayQ.data ?? []).map((a) => ({ value: a.id, label: a.name }))} />
+          <SelectInput label="Semester" required value={form.semesterId} onChange={(v) => setForm({ ...form, semesterId: v })}
+            options={(semQ.data ?? []).map((s) => ({ value: s.id, label: `${s.type} — ${s.academicYear?.name ?? ''}` }))} />
+        </FormStack>
       </Modal>
 
       {detailId && <ScheduleDetail id={detailId} canUpdate={canUpdate} onClose={() => setDetailId(null)} />}
@@ -150,135 +143,114 @@ function ScheduleDetail({ id, canUpdate, onClose }: { id: string; canUpdate: boo
     mutationFn: async () => (await api.post<ApiResponse<{ hasConflict: boolean; conflicts: string[] }>>(`/schedules/${id}/check-conflict`, payload())).data.data,
     onSuccess: (res) => {
       setConflicts(res.conflicts)
-      toast[res.hasConflict ? 'error' : 'success'](res.hasConflict ? 'Ada bentrok!' : 'Tidak ada bentrok')
+      toast[res.hasConflict ? 'danger' : 'success'](res.hasConflict ? 'Ada bentrok!' : 'Tidak ada bentrok')
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const addSlot = useMutation({
     mutationFn: async () => api.post(`/schedules/${id}/details`, payload()),
     onSuccess: () => { toast.success('Slot ditambahkan'); setSlot(empty); setConflicts(null); refresh() },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const delSlot = useMutation({
     mutationFn: async (detailId: string) => api.delete(`/schedules/details/${detailId}`),
     onSuccess: () => { toast.success('Slot dihapus'); setDeleteId(null); refresh() },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const publish = useMutation({
     mutationFn: async () => api.post(`/schedules/${id}/publish`),
     onSuccess: () => { toast.success('Jadwal dipublikasikan'); refresh() },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const sch = detailQuery.data
   const details: Row[] = sch?.details ?? []
   const nameOf = (arr: Row[] | undefined, idv: string, key = 'name') => arr?.find((x) => x.id === idv)?.[key] ?? '-'
 
+  const bindSlot = (name: string) => ({
+    value: slot[name],
+    onChange: (v: string) => setSlot({ ...slot, [name]: v }),
+  })
+  const toOptions = (rows: Row[] | undefined, key = 'name') => (rows ?? []).map((r) => ({ value: r.id, label: r[key] }))
+
   return (
     <Modal open title={`Kelola Slot${sch ? ` — ${sch.name}` : ''}`} onClose={onClose}
-      footer={<button className="btn btn-secondary" onClick={onClose}>Tutup</button>}>
-      {!sch ? <p>Memuat…</p> : (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-            <span className={`pill ${sch.status === 'PUBLISHED' ? 'pill-green' : 'pill-gray'}`}>{sch.status}</span>
+      footer={<Button variant="tertiary" onPress={onClose}>Tutup</Button>}>
+      {!sch ? <Loader /> : (
+        <FormStack>
+          <div className="flex items-center justify-between">
+            <StatusChip color={sch.status === 'PUBLISHED' ? 'success' : 'default'}>{sch.status}</StatusChip>
             {canUpdate && sch.status !== 'PUBLISHED' && (
-              <button className="btn btn-sm btn-primary" onClick={() => publish.mutate()} disabled={publish.isPending}>📢 Publikasikan</button>
+              <Button size="sm" onPress={() => publish.mutate()} isPending={publish.isPending}><Megaphone />Publikasikan</Button>
             )}
           </div>
 
-          {/* Slot list grouped by day */}
           {[1, 2, 3, 4, 5, 6, 7].map((day) => {
             const dayItems = details.filter((d) => d.dayOfWeek === day).sort((a, b) => a.startTime.localeCompare(b.startTime))
             if (dayItems.length === 0) return null
             return (
-              <div key={day} style={{ marginBottom: 10 }}>
-                <strong style={{ fontSize: 13 }}>{DAYS[day]}</strong>
+              <div key={day}>
+                <SectionTitle>{DAYS[day]}</SectionTitle>
                 {dayItems.map((d) => (
-                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
-                    <span style={{ minWidth: 90 }}>{d.startTime}–{d.endTime}</span>
-                    <span style={{ flex: 1 }}>
+                  <div key={d.id} className="flex items-center gap-2 border-b border-separator py-1.5 text-[13px]">
+                    <span className="min-w-24 tabular-nums">{d.startTime}–{d.endTime}</span>
+                    <span className="flex-1">
                       {d.subject?.name ?? d.activityType ?? 'Kegiatan'}
                       {d.class?.name ? ` · ${d.class.name}` : ''}
                       {d.classroom?.name ? ` · ${d.classroom.name}` : ''}
                     </span>
-                    {canUpdate && <button className="btn btn-sm btn-danger" onClick={() => setDeleteId(d.id)}>✕</button>}
+                    {canUpdate && <IconAction danger label="Hapus slot" icon={<TrashBin />} onPress={() => setDeleteId(d.id)} />}
                   </div>
                 ))}
               </div>
             )
           })}
-          {details.length === 0 && <p style={{ color: 'var(--muted)' }}>Belum ada slot.</p>}
+          {details.length === 0 && <p className="text-muted">Belum ada slot.</p>}
 
-          {/* Add slot form */}
           {canUpdate && (
-            <div style={{ marginTop: 16, paddingTop: 14, borderTop: '2px solid var(--border)' }}>
-              <h4 style={{ marginTop: 0 }}>Tambah Slot</h4>
-              <div className="grid-2">
-                <div className="form-group"><label>Hari</label>
-                  <select className="select" value={slot.dayOfWeek} onChange={(e) => setSlot({ ...slot, dayOfWeek: e.target.value })}>
-                    {[1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{DAYS[d]}</option>)}
-                  </select></div>
-                <div className="form-group"><label>Tipe Kegiatan</label>
-                  <select className="select" value={slot.activityType ?? ''} onChange={(e) => setSlot({ ...slot, activityType: e.target.value })}>
-                    <option value="">Mapel</option>
-                    <option value="TAHFIDZ_PAGI">Tahfidz Pagi</option>
-                    <option value="SHALAT">Shalat Berjamaah</option>
-                    <option value="HALAQAH">Halaqah</option>
-                  </select></div>
-              </div>
-              <div className="grid-2">
-                <div className="form-group"><label>Jam Mulai</label><input className="input" type="time" value={slot.startTime} onChange={(e) => setSlot({ ...slot, startTime: e.target.value })} /></div>
-                <div className="form-group"><label>Jam Selesai</label><input className="input" type="time" value={slot.endTime} onChange={(e) => setSlot({ ...slot, endTime: e.target.value })} /></div>
-              </div>
-              <div className="grid-2">
-                <div className="form-group"><label>Mata Pelajaran</label>
-                  <select className="select" value={slot.subjectId ?? ''} onChange={(e) => setSlot({ ...slot, subjectId: e.target.value })}>
-                    <option value="">—</option>
-                    {(subjQ.data ?? []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select></div>
-                <div className="form-group"><label>Guru</label>
-                  <select className="select" value={slot.teacherId ?? ''} onChange={(e) => setSlot({ ...slot, teacherId: e.target.value })}>
-                    <option value="">—</option>
-                    {(teacherQ.data ?? []).map((t) => <option key={t.id} value={t.id}>{t.fullName}</option>)}
-                  </select></div>
-              </div>
-              <div className="grid-2">
-                <div className="form-group"><label>Kelas</label>
-                  <select className="select" value={slot.classId ?? ''} onChange={(e) => setSlot({ ...slot, classId: e.target.value })}>
-                    <option value="">—</option>
-                    {(classQ.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select></div>
-                <div className="form-group"><label>Ruangan</label>
-                  <select className="select" value={slot.classroomId ?? ''} onChange={(e) => setSlot({ ...slot, classroomId: e.target.value })}>
-                    <option value="">—</option>
-                    {(roomQ.data ?? []).map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                  </select></div>
-              </div>
+            <>
+              <Separator />
+              <SectionTitle>Tambah Slot</SectionTitle>
+              <FormGrid>
+                <SelectInput label="Hari" noEmpty options={[1, 2, 3, 4, 5, 6, 7].map((d) => ({ value: d, label: DAYS[d] }))} {...bindSlot('dayOfWeek')} />
+                <SelectInput label="Tipe Kegiatan" emptyLabel="Mapel" {...bindSlot('activityType')}
+                  options={[{ value: 'TAHFIDZ_PAGI', label: 'Tahfidz Pagi' }, { value: 'SHALAT', label: 'Shalat Berjamaah' }, { value: 'HALAQAH', label: 'Halaqah' }]} />
+                <TextInput label="Jam Mulai" type="time" {...bindSlot('startTime')} />
+                <TextInput label="Jam Selesai" type="time" {...bindSlot('endTime')} />
+                <SelectInput label="Mata Pelajaran" emptyLabel="—" options={toOptions(subjQ.data)} {...bindSlot('subjectId')} />
+                <SelectInput label="Guru" emptyLabel="—" options={toOptions(teacherQ.data, 'fullName')} {...bindSlot('teacherId')} />
+                <SelectInput label="Kelas" emptyLabel="—" options={toOptions(classQ.data)} {...bindSlot('classId')} />
+                <SelectInput label="Ruangan" emptyLabel="—" options={toOptions(roomQ.data)} {...bindSlot('classroomId')} />
+              </FormGrid>
 
               {conflicts && conflicts.length > 0 && (
-                <div style={{ background: '#fee2e2', color: '#991b1b', padding: 10, borderRadius: 8, fontSize: 13, marginBottom: 10 }}>
-                  ⚠️ {conflicts.join(', ')}
-                </div>
+                <Alert status="danger">
+                  <Alert.Indicator />
+                  <Alert.Content>
+                    <Alert.Title>Jadwal bentrok</Alert.Title>
+                    <Alert.Description>{conflicts.join(', ')}</Alert.Description>
+                  </Alert.Content>
+                </Alert>
               )}
 
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-sm btn-secondary" onClick={() => checkConflict.mutate()} disabled={checkConflict.isPending}>Cek Bentrok</button>
-                <button className="btn btn-sm btn-primary" onClick={() => addSlot.mutate()} disabled={addSlot.isPending}>+ Tambah Slot</button>
+              <div className="flex gap-2">
+                <Button size="sm" variant="tertiary" onPress={() => checkConflict.mutate()} isPending={checkConflict.isPending}>Cek Bentrok</Button>
+                <Button size="sm" onPress={() => addSlot.mutate()} isPending={addSlot.isPending}><Plus />Tambah Slot</Button>
               </div>
-              <p style={{ fontSize: 12, color: 'var(--muted)' }}>
-                Sistem menolak slot jika guru/ruangan/kelas bentrok di waktu yang sama (lihat data terkait: {nameOf(teacherQ.data, slot.teacherId)}).
+              <p className="text-xs text-muted">
+                Sistem menolak slot jika guru/ruangan/kelas bentrok di waktu yang sama (lihat data terkait: {nameOf(teacherQ.data, slot.teacherId, 'fullName')}).
               </p>
-            </div>
+            </>
           )}
 
           <ConfirmDialog open={!!deleteId} message="Hapus slot ini?"
             onCancel={() => setDeleteId(null)}
             onConfirm={() => deleteId && delSlot.mutate(deleteId)}
             loading={delSlot.isPending} />
-        </div>
+        </FormStack>
       )}
     </Modal>
   )
