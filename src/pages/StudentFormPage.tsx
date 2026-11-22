@@ -214,9 +214,14 @@ function StudentForm({ student, canEdit }: { student?: Row; canEdit: boolean }) 
       { queryKey: ['options', '/classes'], queryFn: async () => (await api.get<ApiResponse<Row[]>>('/classes', { params: { all: true } })).data.data },
     ],
   })
+  // Nilai siswa tetap punya label walau pengguna tidak berizin memuat daftar master.
+  const withCurrent = (options: FieldOption[], current?: Row | null) =>
+    current && !options.some((o) => o.value === current.id)
+      ? [...options, { value: current.id, label: current.name }]
+      : options
   const dynamicOptions = {
-    academicYears: (yearsQuery.data ?? []).map((y) => ({ value: y.id, label: y.name })),
-    classes: (classesQuery.data ?? []).map((c) => ({ value: c.id, label: c.name })),
+    academicYears: withCurrent((yearsQuery.data ?? []).map((y) => ({ value: y.id, label: y.name })), student?.entryAcademicYear),
+    classes: withCurrent((classesQuery.data ?? []).map((c) => ({ value: c.id, label: c.name })), student?.admissionClass),
   }
 
   const save = useMutation({

@@ -6,13 +6,13 @@ import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/AuthContext'
-import { Button } from '@heroui/react'
+import { Avatar, Button } from '@heroui/react'
 import { ArrowDownToLine, ArrowUpFromLine, Eye, PencilToSquare, Plus, TrashBin } from '@gravity-ui/icons'
 import {
   DataTable, IconAction, PageHeader, Panel, RowActions, SearchBox, SelectInput, StatusChip,
-  TablePager, Toolbar, type ChipColor,
+  TablePager, Toolbar, type ChipColor, type Option, type TableColumnDef,
 } from '../components/ui'
-import { STUDENT_STATUS_LABEL, STUDENT_STATUS_OPTIONS } from '../config/studentFields'
+import { DOCUMENT_LABEL, GENDER_OPTIONS, STUDENT_STATUS_LABEL, STUDENT_STATUS_OPTIONS } from '../config/studentFields'
 
 type Student = Record<string, any>
 
@@ -28,6 +28,39 @@ const FILTER_OPTIONS = [
   ...STUDENT_STATUS_OPTIONS.map((o) => (o.value === 'LULUS' ? { ...o, label: 'Lulus (Alumni)' } : o)),
   { value: 'DROP_OUT', label: 'Drop Out' },
 ]
+const EMPTY_FILTERS = { status: '', classId: '', educationProgram: '', entryAcademicYearId: '', gender: '' }
+type StudentFilters = typeof EMPTY_FILTERS
+const activeFilters = (filters: StudentFilters) =>
+  Object.fromEntries(Object.entries(filters).filter(([, value]) => value))
+
+function StudentCell({ student }: { student: Student }) {
+  return (
+    <div className="flex items-center gap-2.5 md:min-w-44">
+      <Avatar color="accent" size="sm" variant="soft" className="shrink-0 max-sm:hidden">
+        {student.photoUrl && <Avatar.Image src={student.photoUrl} alt={`Foto ${student.fullName}`} />}
+        <Avatar.Fallback>{student.fullName.charAt(0).toUpperCase()}</Avatar.Fallback>
+      </Avatar>
+      <div className="min-w-0">
+        <div className="font-bold">{student.fullName}</div>
+        {student.nickname && <div className="text-xs text-muted">{student.nickname}</div>}
+      </div>
+    </div>
+  )
+}
+
+function DocumentProgress({ progress }: { progress?: { uploaded: number; required: number; missing: string[] } }) {
+  if (!progress) return '-'
+  const complete = progress.uploaded >= progress.required
+  const color: ChipColor = complete ? 'success' : progress.uploaded > 0 ? 'warning' : 'danger'
+  const title = complete
+    ? 'Dokumen lengkap'
+    : `Belum ada: ${progress.missing.map((type) => DOCUMENT_LABEL[type] ?? type).join(', ')}`
+  return (
+    <span title={title} aria-label={`${progress.uploaded} dari ${progress.required} dokumen. ${title}`}>
+      <StatusChip color={color}>{progress.uploaded}/{progress.required}</StatusChip>
+    </span>
+  )
+}
 
 export function StudentsPage() {
   const qc = useQueryClient()
@@ -36,7 +69,7 @@ export function StudentsPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
+  const [filters, setFilters] = useState<StudentFilters>(EMPTY_FILTERS)
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const canCreate = hasPermission('students.create')
@@ -44,14 +77,27 @@ export function StudentsPage() {
   const canDelete = hasPermission('students.delete')
 
   const listQuery = useQuery({
-    queryKey: ['students', page, search, statusFilter],
+    queryKey: ['students', page, search, filters],
     queryFn: async () => {
       const { data } = await api.get<ApiResponse<Student[]>>('/students', {
-        params: { page, limit: 10, search, status: statusFilter || undefined },
+        params: { page, limit: 10, search, ...activeFilters(filters) },
       })
       return data
     },
   })
+
+  const filterOptions = useQuery({
+    queryKey: ['students', 'filter-options'],
+    queryFn: async () =>
+      (await api.get<ApiResponse<{ classes: Option[]; academicYears: Option[]; programs: Option[] }>>('/students/filter-options')).data.data,
+  })
+
+  function setFilter(name: keyof StudentFilters, value: string) {
+    setFilters((prev) => ({ ...prev, [name]: value }))
+    setPage(1)
+  }
+
+  const hasFilters = !!search || Object.values(filters).some(Boolean)
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => api.delete(`/students/${id}`),
@@ -85,7 +131,7 @@ export function StudentsPage() {
     // Pakai client api agar mengikuti VITE_API_URL, token, dan refresh token.
     try {
       const res = await api.get<Blob>('/students/export', {
-        params: { status: statusFilter || undefined },
+        params: { search: search || undefined, ...activeFilters(filters) },
         responseType: 'blob',
       })
       const url = URL.createObjectURL(res.data)
@@ -113,6 +159,18 @@ export function StudentsPage() {
 
   const items = listQuery.data?.data ?? []
   const meta = listQuery.data?.meta
+  const columns: TableColumnDef[] = [
+    { label: 'Siswa' },
+    { label: 'NIS', hideOnMobile: true },
+    { label: 'NISN', hideOnMobile: true },
+    { label: 'Kelas' },
+    { label: 'L/P', hideOnMobile: true },
+    { label: 'Program', hideOnMobile: true },
+    { label: 'Tahun Masuk', hideOnMobile: true },
+    ...(canUpdate ? [{ label: 'Dokumen', hideOnMobile: true }] : []),
+    { label: 'Status' },
+    { label: 'Aksi', align: 'right' },
+  ]
 
   return (
     <div>
@@ -146,26 +204,37 @@ export function StudentsPage() {
 
       <Panel>
         <Toolbar>
-          <SearchBox placeholder="Cari nama / NIS / NISN…" value={search} onChange={(v) => { setSearch(v); setPage(1) }} />
-          <SelectInput
-            ariaLabel="Filter status"
-            className="w-full sm:w-48"
-            emptyLabel="Semua Status"
-            options={FILTER_OPTIONS}
-            value={statusFilter}
-            onChange={(v) => { setStatusFilter(v); setPage(1) }}
+          <SearchBox
+            placeholder="Cari nama / panggilan / NIS / NISN…"
+            value={search}
+            onChange={(v) => { setSearch(v); setPage(1) }}
           />
+          <SelectInput ariaLabel="Filter status" className="w-full sm:w-44" emptyLabel="Semua Status" options={FILTER_OPTIONS} value={filters.status} onChange={(v) => setFilter('status', v)} />
+          <SelectInput ariaLabel="Filter kelas" className="w-full sm:w-44" emptyLabel="Semua Kelas" options={filterOptions.data?.classes ?? []} value={filters.classId} onChange={(v) => setFilter('classId', v)} />
+          <SelectInput ariaLabel="Filter program" className="w-full sm:w-44" emptyLabel="Semua Program" options={filterOptions.data?.programs ?? []} value={filters.educationProgram} onChange={(v) => setFilter('educationProgram', v)} />
+          <SelectInput ariaLabel="Filter tahun masuk" className="w-full sm:w-44" emptyLabel="Semua Tahun Masuk" options={filterOptions.data?.academicYears ?? []} value={filters.entryAcademicYearId} onChange={(v) => setFilter('entryAcademicYearId', v)} />
+          <SelectInput ariaLabel="Filter jenis kelamin" className="w-full sm:w-44" emptyLabel="Semua L/P" options={GENDER_OPTIONS} value={filters.gender} onChange={(v) => setFilter('gender', v)} />
+          {hasFilters && (
+            <Button variant="ghost" onPress={() => { setSearch(''); setFilters(EMPTY_FILTERS); setPage(1) }}>
+              Reset
+            </Button>
+          )}
         </Toolbar>
         <DataTable
           label="Data siswa"
-          columns={[{ label: 'NIS' }, { label: 'NISN' }, { label: 'Nama' }, { label: 'JK' }, { label: 'Status' }, { label: 'Aksi', align: 'right' }]}
+          columns={columns}
           rows={items}
           isLoading={listQuery.isLoading}
+          emptyText={hasFilters ? 'Tidak ada siswa yang cocok dengan filter' : 'Belum ada data'}
           renderRow={(s) => [
+            <StudentCell student={s} />,
             s.nis ?? '-',
             s.nisn ?? '-',
-            s.fullName,
+            s.classAssignments?.map((a: Student) => a.class?.name).filter(Boolean).join(', ') || '-',
             s.gender === 'PEREMPUAN' ? 'P' : 'L',
+            s.educationProgram ?? '-',
+            s.entryAcademicYear?.name ?? '-',
+            ...(canUpdate ? [<DocumentProgress progress={s.documentProgress} />] : []),
             <StatusChip color={STATUS_COLOR[s.status]}>{STUDENT_STATUS_LABEL[s.status] ?? s.status}</StatusChip>,
             <RowActions>
               <IconAction

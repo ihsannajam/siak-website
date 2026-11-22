@@ -175,6 +175,8 @@ export function CheckInput({ label, checked, onChange, className }: { label: Rea
 export interface TableColumnDef {
   label: string
   align?: 'right'
+  /** Disembunyikan di layar kecil agar tabel tidak perlu digeser. */
+  hideOnMobile?: boolean
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -187,7 +189,8 @@ export function DataTable<T extends Record<string, any>>({
   emptyText?: string
   renderRow: (row: T) => ReactNode[]
 }) {
-  const alignClass = (i: number) => (columns[i]?.align === 'right' ? 'text-right' : '')
+  const alignClass = (i: number) =>
+    `max-md:px-2 ${columns[i]?.align === 'right' ? 'text-right' : ''} ${columns[i]?.hideOnMobile ? 'max-md:hidden' : ''}`.trim()
   return (
     <Table variant="secondary" className="rounded-none">
       <Table.ScrollContainer>

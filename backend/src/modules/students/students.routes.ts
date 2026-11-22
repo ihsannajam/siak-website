@@ -23,6 +23,7 @@ router.use(authenticate);
 
 // Special endpoints (declare before /:id)
 router.get('/export', requirePermission('students.read'), studentsController.export);
+router.get('/filter-options', requirePermission('students.read'), studentsController.filterOptions);
 router.get('/alumni', requirePermission('students.read'), studentsController.alumni);
 router.post(
   '/import',

@@ -1,5 +1,12 @@
 import { Request, Response } from 'express';
-import { presentStudent, redactStudent, stripStudentFiles, studentsService } from './students.service';
+import {
+  buildStudentWhere,
+  parseStudentFilters,
+  presentStudent,
+  presentStudentRow,
+  redactStudent,
+  studentsService,
+} from './students.service';
 import { asyncHandler } from '../../common/asyncHandler';
 import { success, created } from '../../common/apiResponse';
 import { getPageParams } from '../../common/pagination';
@@ -10,21 +17,29 @@ import { prisma } from '../../config/prisma';
 
 export const studentsController = {
   list: asyncHandler(async (req: Request, res: Response) => {
-    const status = req.query.status as string | undefined;
+    const filters = parseStudentFilters(req.query);
     // ?all=true returns the full list (for dropdowns/selects) without pagination.
     if (req.query.all === 'true') {
-      const items = await studentsService.findAll(status);
-      return success(res, items.map(stripStudentFiles));
+      const items = await studentsService.findAll(filters.status);
+      return success(res, items);
     }
     const params = getPageParams(req);
-    const { items, meta } = await studentsService.list(params, status);
-    return success(res, items.map(stripStudentFiles), 'Berhasil', 200, meta);
+    const { items, meta } = await studentsService.list(params, filters);
+    const canViewProgress = req.user!.permissions.includes('students.update');
+    const rows = await Promise.all(items.map((item) => presentStudentRow(item, canViewProgress)));
+    return success(res, rows, 'Berhasil', 200, meta);
+  }),
+
+  filterOptions: asyncHandler(async (_req: Request, res: Response) => {
+    return success(res, await studentsService.filterOptions());
   }),
 
   alumni: asyncHandler(async (req: Request, res: Response) => {
     const params = getPageParams(req);
     const { items, meta } = await studentsService.listAlumni(params);
-    return success(res, items.map(stripStudentFiles), 'Daftar alumni', 200, meta);
+    const canViewProgress = req.user!.permissions.includes('students.update');
+    const rows = await Promise.all(items.map((item) => presentStudentRow(item, canViewProgress)));
+    return success(res, rows, 'Daftar alumni', 200, meta);
   }),
 
   detail: asyncHandler(async (req: Request, res: Response) => {
@@ -65,11 +80,9 @@ export const studentsController = {
     return success(res, result, 'Siswa berhasil diluluskan menjadi alumni');
   }),
 
-  // GET /students/export?status=AKTIF
+  // GET /students/export memakai filter yang sama dengan tabel.
   export: asyncHandler(async (req: Request, res: Response) => {
-    const status = req.query.status as string | undefined;
-    const where: Record<string, unknown> = { deletedAt: null };
-    if (status) where.status = status;
+    const where = buildStudentWhere(parseStudentFilters(req.query));
     const students = await prisma.student.findMany({ where, orderBy: { fullName: 'asc' } });
 
     const rows = students.map((st) => ({

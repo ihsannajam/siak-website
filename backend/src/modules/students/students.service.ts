@@ -3,12 +3,36 @@ import { ApiError } from '../../common/ApiError';
 import { PageParams, buildMeta } from '../../common/pagination';
 import { getSignedFileUrl } from '../../common/storage';
 
-const listInclude = {
+const activeClassInclude = {
   classAssignments: { where: { isActive: true, deletedAt: null }, include: { class: true } },
 };
 
+/** Kolom ringkas untuk daftar; NIK, kontak, dan alamat hanya ada di halaman detail. */
+const summarySelect = {
+  id: true,
+  nis: true,
+  nisn: true,
+  fullName: true,
+  nickname: true,
+  gender: true,
+  status: true,
+  educationProgram: true,
+  ...activeClassInclude,
+};
+
+const listSelect = {
+  ...summarySelect,
+  photoPath: true,
+  // Tiga kolom berikut dan relasi family/documents hanya untuk menghitung kelengkapan.
+  admissionType: true,
+  livingWith: true,
+  entryAcademicYear: { select: { id: true, name: true } },
+  documents: { where: { deletedAt: null }, select: { docType: true } },
+  family: { select: { guardianName: true, fatherLifeStatus: true, motherLifeStatus: true } },
+};
+
 const studentInclude = {
-  ...listInclude,
+  ...activeClassInclude,
   family: true,
   healthRecord: true,
   entryAcademicYear: true,
@@ -67,21 +91,93 @@ export function redactStudent<T extends Record<string, any>>(student: T): T {
   return copy as T;
 }
 
+const LEGACY_DOC_TYPES: Record<string, string> = {
+  AKTA: 'AKTA_KELAHIRAN',
+  KK: 'KARTU_KELUARGA',
+  IJAZAH: 'IJAZAH_SKL',
+  FOTO: 'PAS_FOTO',
+};
+
+/** Dokumen "jika ada" hanya dihitung bila memang berlaku untuk siswa tersebut. */
+export function getDocumentProgress(student: {
+  admissionType?: string | null;
+  livingWith?: string | null;
+  documents?: { docType: string }[];
+  family?: { guardianName?: string | null; fatherLifeStatus?: string | null; motherLifeStatus?: string | null } | null;
+}) {
+  const required = ['AKTA_KELAHIRAN', 'KARTU_KELUARGA', 'IJAZAH_SKL', 'PAS_FOTO'];
+  if (student.family?.fatherLifeStatus !== 'MENINGGAL') required.push('KTP_AYAH');
+  if (student.family?.motherLifeStatus !== 'MENINGGAL') required.push('KTP_IBU');
+  if (student.family?.guardianName || student.livingWith === 'WALI') required.push('KTP_WALI');
+  if (student.admissionType === 'PINDAHAN') required.push('SURAT_PINDAH');
+
+  const uploaded = new Set((student.documents ?? []).map((d) => LEGACY_DOC_TYPES[d.docType] ?? d.docType));
+  const missing = required.filter((type) => !uploaded.has(type));
+  return { uploaded: required.length - missing.length, required: required.length, missing };
+}
+
+/** Baris tabel siswa. Data bantu kelengkapan tidak ikut dikirim ke browser. */
+export async function presentStudentRow<T extends Record<string, any>>(student: T, canViewProgress: boolean) {
+  const { documents: _documents, family: _family, admissionType: _admissionType, livingWith: _livingWith, photoPath, ...row } = student;
+  const photoUrl = photoPath ? await getSignedFileUrl(photoPath, 300).catch(() => null) : null;
+  return {
+    ...row,
+    photoUrl,
+    ...(canViewProgress ? { documentProgress: getDocumentProgress(student) } : {}),
+  };
+}
+
+export interface StudentFilters {
+  status?: string;
+  classId?: string;
+  educationProgram?: string;
+  entryAcademicYearId?: string;
+  gender?: string;
+  search?: string;
+}
+
+const STUDENT_STATUSES = new Set(['AKTIF', 'LULUS', 'PINDAH', 'DROP_OUT', 'NONAKTIF', 'MENGUNDURKAN_DIRI']);
+const GENDERS = new Set(['LAKI_LAKI', 'PEREMPUAN']);
+
+export function parseStudentFilters(query: Record<string, unknown>): StudentFilters {
+  const text = (key: string) => (typeof query[key] === 'string' && query[key] ? (query[key] as string) : undefined);
+  const filters: StudentFilters = {
+    status: text('status'),
+    classId: text('classId'),
+    educationProgram: text('educationProgram'),
+    entryAcademicYearId: text('entryAcademicYearId'),
+    gender: text('gender'),
+    search: text('search'),
+  };
+  if (filters.status && !STUDENT_STATUSES.has(filters.status)) throw ApiError.badRequest('Filter status tidak valid');
+  if (filters.gender && !GENDERS.has(filters.gender)) throw ApiError.badRequest('Filter jenis kelamin tidak valid');
+  return filters;
+}
+
+export function buildStudentWhere(filters: StudentFilters) {
+  const where: Record<string, unknown> = { deletedAt: null };
+  if (filters.status) where.status = filters.status;
+  if (filters.gender) where.gender = filters.gender;
+  if (filters.educationProgram) where.educationProgram = filters.educationProgram;
+  if (filters.entryAcademicYearId) where.entryAcademicYearId = filters.entryAcademicYearId;
+  if (filters.classId) {
+    where.classAssignments = { some: { classId: filters.classId, isActive: true, deletedAt: null } };
+  }
+  if (filters.search) {
+    where.OR = ['fullName', 'nickname', 'nis', 'nisn'].map((field) => ({
+      [field]: { contains: filters.search, mode: 'insensitive' },
+    }));
+  }
+  return where;
+}
+
 export const studentsService = {
-  async list(params: PageParams, status?: string) {
-    const where: Record<string, unknown> = { deletedAt: null };
-    if (status) where.status = status;
-    if (params.search) {
-      where.OR = [
-        { fullName: { contains: params.search, mode: 'insensitive' } },
-        { nis: { contains: params.search, mode: 'insensitive' } },
-        { nisn: { contains: params.search, mode: 'insensitive' } },
-      ];
-    }
+  async list(params: PageParams, filters: StudentFilters = {}) {
+    const where = buildStudentWhere({ ...filters, search: params.search || filters.search });
     const [items, total] = await Promise.all([
       prisma.student.findMany({
         where,
-        include: listInclude,
+        select: listSelect,
         orderBy: params.sortBy ? { [params.sortBy]: params.sortOrder } : { fullName: 'asc' },
         skip: params.skip,
         take: params.limit,
@@ -97,8 +193,35 @@ export const studentsService = {
     return prisma.student.findMany({
       where,
       orderBy: { fullName: 'asc' },
-      include: { classAssignments: { where: { isActive: true, deletedAt: null }, include: { class: true } } },
+      select: summarySelect,
     });
+  },
+
+  /** Pilihan filter tabel, hanya dari data siswa yang boleh dilihat lewat students.read. */
+  async filterOptions() {
+    const [classes, years, programs] = await Promise.all([
+      prisma.class.findMany({
+        where: { deletedAt: null, classAssignments: { some: { isActive: true, deletedAt: null, student: { deletedAt: null } } } },
+        select: { id: true, name: true, academicYear: { select: { name: true } } },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.academicYear.findMany({
+        where: { deletedAt: null, entryStudents: { some: { deletedAt: null } } },
+        select: { id: true, name: true },
+        orderBy: { name: 'desc' },
+      }),
+      prisma.student.findMany({
+        where: { deletedAt: null, educationProgram: { not: null } },
+        distinct: ['educationProgram'],
+        select: { educationProgram: true },
+        orderBy: { educationProgram: 'asc' },
+      }),
+    ]);
+    return {
+      classes: classes.map((c) => ({ value: c.id, label: `${c.name} (${c.academicYear.name})` })),
+      academicYears: years.map((y) => ({ value: y.id, label: y.name })),
+      programs: programs.map((p) => ({ value: p.educationProgram!, label: p.educationProgram! })),
+    };
   },
 
   async getById(id: string) {
@@ -230,6 +353,6 @@ export const studentsService = {
   },
 
   async listAlumni(params: PageParams) {
-    return this.list(params, 'LULUS');
+    return this.list(params, { status: 'LULUS' });
   },
 };
