@@ -34,11 +34,6 @@ export interface ModuleConfig {
   fields: FieldDef[]
 }
 
-const GENDER = [
-  { value: 'LAKI_LAKI', label: 'Laki-laki' },
-  { value: 'PEREMPUAN', label: 'Perempuan' },
-]
-
 export const MODULE_CONFIGS: Record<string, ModuleConfig> = {
   'academic-years': {
     key: 'academic-years',
@@ -317,42 +312,6 @@ export const MODULE_CONFIGS: Record<string, ModuleConfig> = {
       { name: 'endDate', label: 'Tanggal Selesai', type: 'date', required: true },
       { name: 'isHoliday', label: 'Hari Libur', type: 'checkbox' },
       { name: 'description', label: 'Deskripsi', type: 'textarea' },
-    ],
-  },
-
-  employees: {
-    key: 'employees',
-    title: 'Data Pegawai',
-    apiPath: '/employees',
-    permissionKey: 'employees',
-    columns: [
-      { key: 'fullName', label: 'Nama' },
-      { key: 'position', label: 'Jabatan' },
-      { key: 'employmentStatus', label: 'Status' },
-      { key: 'phone', label: 'Telepon' },
-    ],
-    fields: [
-      { name: 'fullName', label: 'Nama Lengkap', required: true },
-      { name: 'nip', label: 'NIP' },
-      { name: 'nuptk', label: 'NUPTK' },
-      { name: 'nik', label: 'NIK' },
-      { name: 'gender', label: 'Jenis Kelamin', type: 'select', options: GENDER },
-      { name: 'position', label: 'Jabatan', required: true },
-      {
-        name: 'employmentStatus',
-        label: 'Status Kepegawaian',
-        type: 'select',
-        options: [
-          { value: 'TETAP', label: 'Tetap' },
-          { value: 'KONTRAK', label: 'Kontrak' },
-          { value: 'HONORER', label: 'Honorer' },
-        ],
-      },
-      { name: 'phone', label: 'Telepon' },
-      { name: 'email', label: 'Email' },
-      { name: 'address', label: 'Alamat', type: 'textarea' },
-      { name: 'bankName', label: 'Nama Bank' },
-      { name: 'bankAccount', label: 'No. Rekening' },
     ],
   },
 

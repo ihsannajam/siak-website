@@ -708,7 +708,21 @@ model Employee {
   bankAccount     String?          @map("bank_account")
   photoPath       String?          @map("photo_path")
 
+  religion               String?
+  maritalStatus          String?   @map("marital_status")
+  personnelCategory      String?   @map("personnel_category") // GURU, TENAGA_KEPENDIDIKAN, KARYAWAN
+  workStartDate          DateTime? @map("work_start_date") @db.Date
+  appointmentDecreeNumber String?  @map("appointment_decree_number")
+  activeStatus           String    @default("AKTIF") @map("active_status") // AKTIF, CUTI, NONAKTIF, KELUAR
+  lastEducation          String?   @map("last_education")
+  studyProgram           String?   @map("study_program")
+  institutionName        String?   @map("institution_name")
+  graduationYear         Int?      @map("graduation_year")
+  academicTitle          String?   @map("academic_title")
+  additionalDuties       String?   @map("additional_duties")
+
   users              User[]
+  trainings          EmployeeTraining[]
   documents          EmployeeDocument[]
   salaryComponents   EmployeeSalaryComponent[]
   subjectAssignments TeacherSubjectAssignment[]
@@ -723,6 +737,25 @@ model Employee {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("employees")
+}
+
+model EmployeeTraining {
+  id                String   @id @default(uuid())
+  employeeId        String   @map("employee_id")
+  employee          Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  name              String
+  organizer         String?
+  year              Int?
+  certificateNumber String?  @map("certificate_number")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([employeeId])
+  @@map("employee_trainings")
 }
 
 model EmployeeDocument {

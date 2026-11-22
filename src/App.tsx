@@ -18,6 +18,8 @@ import { PaymentsPage } from './pages/PaymentsPage'
 import { LeaveRequestsPage } from './pages/LeaveRequestsPage'
 import { StudentDocumentsPage } from './pages/StudentDocumentsPage'
 import { SchoolProfilePage } from './pages/SchoolProfilePage'
+import { EmployeesPage } from './pages/EmployeesPage'
+import { EmployeeFormPage } from './pages/EmployeeFormPage'
 import { CrudPage } from './pages/CrudPage'
 import { getModuleConfig } from './config/modules'
 import { API_BASE_URL } from './lib/api'
@@ -68,6 +70,9 @@ export default function App() {
               <Route path="/students/new" element={<StudentFormPage />} />
               <Route path="/students/:id" element={<StudentFormPage />} />
               <Route path="/school-profile" element={<SchoolProfilePage />} />
+              <Route path="/employees" element={<EmployeesPage />} />
+              <Route path="/employees/new" element={<EmployeeFormPage />} />
+              <Route path="/employees/:id" element={<EmployeeFormPage />} />
               <Route path="/student-documents" element={<StudentDocumentsPage />} />
               <Route path="/ppdb" element={<PpdbPage />} />
               <Route path="/schedules" element={<SchedulesPage />} />
