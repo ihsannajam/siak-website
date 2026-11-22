@@ -1,4 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { Card, Link } from '@heroui/react'
+import { PageHeader } from './components/ui'
 import { AuthProvider } from './auth/AuthContext'
 import { ProtectedRoute } from './auth/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -29,23 +31,21 @@ function ModulePage() {
   if (!config) {
     return (
       <div>
-        <div className="page-header">
-          <h1>{moduleKey}</h1>
-        </div>
-        <div className="card">
-          <div className="card-body">
+        <PageHeader title={moduleKey} />
+        <Card>
+          <Card.Content className="gap-2">
             <p>
               Modul <strong>{moduleKey}</strong> tersedia melalui REST API dan dapat diuji di{' '}
-              <a href={apiDocsUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)' }}>
+              <Link href={apiDocsUrl} target="_blank" rel="noreferrer">
                 Swagger (/api-docs)
-              </a>
+              </Link>
               .
             </p>
-            <p style={{ color: 'var(--muted)' }}>
+            <p className="text-muted">
               Tambahkan entri di <code>src/config/modules.ts</code> untuk menampilkan halaman CRUD-nya secara otomatis.
             </p>
-          </div>
-        </div>
+          </Card.Content>
+        </Card>
       </div>
     )
   }

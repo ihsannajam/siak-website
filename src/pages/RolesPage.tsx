@@ -1,11 +1,17 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/AuthContext'
+import { Button, Card } from '@heroui/react'
+import { Plus } from '@gravity-ui/icons'
+import {
+  CheckInput, DataTable, EditDeleteActions, FormGrid, FormStack, PageHeader, Panel, SectionTitle,
+  TextAreaInput, TextInput,
+} from '../components/ui'
 
 type Row = Record<string, any>
 interface PermResponse {
@@ -57,7 +63,7 @@ export function RolesPage() {
       setModalOpen(false)
       qc.invalidateQueries({ queryKey: ['roles'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -67,7 +73,7 @@ export function RolesPage() {
       setDeleteId(null)
       qc.invalidateQueries({ queryKey: ['roles'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   function openCreate() {
@@ -103,7 +109,7 @@ export function RolesPage() {
   }
 
   function submit() {
-    if (!form.name || !form.displayName) return toast.error('Nama dan label role wajib diisi')
+    if (!form.name || !form.displayName) return toast.danger('Nama dan label role wajib diisi')
     saveMutation.mutate()
   }
 
@@ -111,70 +117,37 @@ export function RolesPage() {
   const grouped = permsQuery.data?.grouped ?? {}
   const selected = new Set<string>(form.permissionIds ?? [])
 
+  const bind = (name: string) => ({
+    value: form[name],
+    onChange: (v: string) => setForm({ ...form, [name]: v }),
+  })
+
   return (
     <div>
-      <div className="page-header">
-        <h1>Manajemen Role</h1>
-        {canCreate && (
-          <button className="btn btn-primary" onClick={openCreate}>
-            + Tambah Role
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Manajemen Role"
+        actions={canCreate && <Button onPress={openCreate}><Plus />Tambah Role</Button>}
+      />
 
-      <div className="card">
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Nama</th>
-                <th>Label</th>
-                <th>Jumlah Permission</th>
-                <th>Jumlah User</th>
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    Memuat…
-                  </td>
-                </tr>
-              )}
-              {!listQuery.isLoading && roles.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="empty">
-                    Belum ada role
-                  </td>
-                </tr>
-              )}
-              {roles.map((r) => (
-                <tr key={r.id}>
-                  <td>
-                    <code>{r.name}</code>
-                  </td>
-                  <td>{r.displayName}</td>
-                  <td>{(r.rolePermissions ?? []).length}</td>
-                  <td>{r._count?.userRoles ?? 0}</td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {canUpdate && (
-                      <button className="btn btn-sm btn-secondary" onClick={() => openEdit(r)}>
-                        Edit
-                      </button>
-                    )}{' '}
-                    {canDelete && (
-                      <button className="btn btn-sm btn-danger" onClick={() => setDeleteId(r.id)}>
-                        Hapus
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <Panel>
+        <DataTable
+          label="Daftar role"
+          columns={[{ label: 'Nama' }, { label: 'Label' }, { label: 'Jumlah Permission' }, { label: 'Jumlah User' }, { label: 'Aksi', align: 'right' }]}
+          rows={roles}
+          isLoading={listQuery.isLoading}
+          emptyText="Belum ada role"
+          renderRow={(r) => [
+            <code className="text-xs">{r.name}</code>,
+            r.displayName,
+            (r.rolePermissions ?? []).length,
+            r._count?.userRoles ?? 0,
+            <EditDeleteActions
+              onEdit={canUpdate ? () => openEdit(r) : undefined}
+              onDelete={canDelete ? () => setDeleteId(r.id) : undefined}
+            />,
+          ]}
+        />
+      </Panel>
 
       <Modal
         open={modalOpen}
@@ -182,72 +155,37 @@ export function RolesPage() {
         onClose={() => setModalOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>
-              Batal
-            </button>
-            <button className="btn btn-primary" onClick={submit} disabled={saveMutation.isPending}>
+            <Button variant="tertiary" onPress={() => setModalOpen(false)}>Batal</Button>
+            <Button onPress={submit} isPending={saveMutation.isPending}>
               {saveMutation.isPending ? 'Menyimpan…' : 'Simpan'}
-            </button>
+            </Button>
           </>
         }
       >
-        <div className="grid-2">
-          <div className="form-group">
-            <label>
-              Nama (kode) <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              placeholder="mis. WALI_KELAS"
-              value={form.name ?? ''}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>
-              Label <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              placeholder="mis. Wali Kelas"
-              value={form.displayName ?? ''}
-              onChange={(e) => setForm({ ...form, displayName: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="form-group">
-          <label>Deskripsi</label>
-          <textarea
-            rows={2}
-            value={form.description ?? ''}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
-          />
-        </div>
-
-        <label style={{ fontWeight: 600 }}>Hak Akses (Permission)</label>
-        <div style={{ marginTop: 8 }}>
-          {Object.entries(grouped).map(([module, perms]) => {
-            const allOn = perms.every((p) => selected.has(p.id))
-            return (
-              <div key={module} className="card" style={{ marginBottom: 8 }}>
-                <div className="card-body" style={{ padding: 10 }}>
-                  <label className="checkbox-row" style={{ margin: 0, fontWeight: 600 }}>
-                    <input type="checkbox" checked={allOn} onChange={() => toggleModule(perms)} />
-                    {module}
-                  </label>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 6, paddingLeft: 24 }}>
-                    {perms.map((p) => (
-                      <label key={p.id} className="checkbox-row" style={{ margin: 0, fontSize: 13 }}>
-                        <input type="checkbox" checked={selected.has(p.id)} onChange={() => togglePerm(p.id)} />
-                        {p.action}
-                      </label>
-                    ))}
-                  </div>
+        <FormStack>
+          <FormGrid>
+            <TextInput label="Nama (kode)" required placeholder="mis. WALI_KELAS" {...bind('name')} />
+            <TextInput label="Label" required placeholder="mis. Wali Kelas" {...bind('displayName')} />
+          </FormGrid>
+          <TextAreaInput label="Deskripsi" rows={2} {...bind('description')} />
+          <SectionTitle>Hak Akses (Permission)</SectionTitle>
+          <div className="flex flex-col gap-2">
+            {Object.entries(grouped).map(([module, perms]) => (
+              <Card key={module} variant="secondary" className="gap-2 p-3">
+                <CheckInput
+                  label={<strong>{module}</strong>}
+                  checked={perms.every((p) => selected.has(p.id))}
+                  onChange={() => toggleModule(perms)}
+                />
+                <div className="flex flex-wrap gap-3 pl-6">
+                  {perms.map((p) => (
+                    <CheckInput key={p.id} label={p.action} checked={selected.has(p.id)} onChange={() => togglePerm(p.id)} />
+                  ))}
                 </div>
-              </div>
-            )
-          })}
-        </div>
+              </Card>
+            ))}
+          </div>
+        </FormStack>
       </Modal>
 
       <ConfirmDialog

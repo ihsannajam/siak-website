@@ -1,20 +1,32 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
-import { api, getErrorMessage, tokenStore } from '../lib/api'
+import { toast } from '@heroui/react'
+import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '@heroui/react'
+import { ArrowDownToLine, ArrowUpFromLine, Plus } from '@gravity-ui/icons'
+import {
+  DataTable, EditDeleteActions, FormGrid, FormStack, PageHeader, Panel, SearchBox, SelectInput,
+  StatusChip, TablePager, TextAreaInput, TextInput, Toolbar, type ChipColor,
+} from '../components/ui'
 
 type Student = Record<string, any>
 
-const STATUS_PILL: Record<string, string> = {
-  AKTIF: 'pill-green',
-  LULUS: 'pill-blue',
-  PINDAH: 'pill-yellow',
-  DROP_OUT: 'pill-red',
+const STATUS_COLOR: Record<string, ChipColor> = {
+  AKTIF: 'success',
+  LULUS: 'info',
+  PINDAH: 'warning',
+  DROP_OUT: 'danger',
 }
+const GENDER_OPTIONS = [{ value: 'LAKI_LAKI', label: 'Laki-laki' }, { value: 'PEREMPUAN', label: 'Perempuan' }]
+const STATUS_OPTIONS = [
+  { value: 'AKTIF', label: 'Aktif' }, { value: 'LULUS', label: 'Lulus' },
+  { value: 'PINDAH', label: 'Pindah' }, { value: 'DROP_OUT', label: 'Drop Out' },
+]
+const FILTER_OPTIONS = STATUS_OPTIONS.map((o) => (o.value === 'LULUS' ? { ...o, label: 'Lulus (Alumni)' } : o))
 
 export function StudentsPage() {
   const qc = useQueryClient()
@@ -52,7 +64,7 @@ export function StudentsPage() {
       setModalOpen(false)
       qc.invalidateQueries({ queryKey: ['students'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -62,7 +74,7 @@ export function StudentsPage() {
       setDeleteId(null)
       qc.invalidateQueries({ queryKey: ['students'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const importMutation = useMutation({
@@ -80,25 +92,37 @@ export function StudentsPage() {
       toast.success(`Import selesai: ${res.created} berhasil, ${res.failed} gagal`)
       qc.invalidateQueries({ queryKey: ['students'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
-  function handleExport() {
-    // Export hits a streaming endpoint; open with token via query is not allowed,
-    // so fetch as blob and trigger download.
-    fetch(`/api/students/export${statusFilter ? `?status=${statusFilter}` : ''}`, {
-      headers: { Authorization: `Bearer ${tokenStore.access}` },
-    })
-      .then((r) => r.blob())
-      .then((blob) => {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `data-siswa-${Date.now()}.xlsx`
-        a.click()
-        URL.revokeObjectURL(url)
+  async function handleExport() {
+    // Pakai client api agar mengikuti VITE_API_URL, token, dan refresh token.
+    try {
+      const res = await api.get<Blob>('/students/export', {
+        params: { status: statusFilter || undefined },
+        responseType: 'blob',
       })
-      .catch(() => toast.error('Gagal export'))
+      const url = URL.createObjectURL(res.data)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `data-siswa-${Date.now()}.xlsx`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      // Dengan responseType blob, pesan error backend juga berbentuk Blob.
+      const body = (e as { response?: { data?: unknown } }).response?.data
+      let message = 'Gagal export'
+      if (body instanceof Blob) {
+        try {
+          message = JSON.parse(await body.text()).message || message
+        } catch {
+          /* respons bukan JSON */
+        }
+      } else {
+        message = getErrorMessage(e)
+      }
+      toast.danger(message)
+    }
   }
 
   function openCreate() {
@@ -125,7 +149,7 @@ export function StudentsPage() {
 
   function submit() {
     if (!form.fullName) {
-      toast.error('Nama lengkap wajib diisi')
+      toast.danger('Nama lengkap wajib diisi')
       return
     }
     const payload = { ...form }
@@ -136,85 +160,72 @@ export function StudentsPage() {
   const items = listQuery.data?.data ?? []
   const meta = listQuery.data?.meta
 
+  const bind = (name: string) => ({
+    value: form[name],
+    onChange: (v: string) => setForm({ ...form, [name]: v }),
+  })
+
   return (
     <div>
-      <div className="page-header">
-        <h1>Data Siswa</h1>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button className="btn btn-secondary" onClick={handleExport}>⬇️ Export Excel</button>
-          {canCreate && (
-            <>
-              <button className="btn btn-secondary" onClick={() => fileRef.current?.click()}>⬆️ Import</button>
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".xlsx,.csv"
-                hidden
-                onChange={(e) => {
-                  const f = e.target.files?.[0]
-                  if (f) importMutation.mutate(f)
-                  e.target.value = ''
-                }}
-              />
-              <button className="btn btn-primary" onClick={openCreate}>+ Tambah Siswa</button>
-            </>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title="Data Siswa"
+        actions={
+          <>
+            <Button variant="tertiary" onPress={handleExport}><ArrowDownToLine />Export Excel</Button>
+            {canCreate && (
+              <>
+                <Button variant="tertiary" onPress={() => fileRef.current?.click()} isPending={importMutation.isPending}>
+                  <ArrowUpFromLine />Import
+                </Button>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".xlsx,.csv"
+                  hidden
+                  onChange={(e) => {
+                    const f = e.target.files?.[0]
+                    if (f) importMutation.mutate(f)
+                    e.target.value = ''
+                  }}
+                />
+                <Button onPress={openCreate}><Plus />Tambah Siswa</Button>
+              </>
+            )}
+          </>
+        }
+      />
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            className="input search-input"
-            placeholder="Cari nama / NIS / NISN…"
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+      <Panel>
+        <Toolbar>
+          <SearchBox placeholder="Cari nama / NIS / NISN…" value={search} onChange={(v) => { setSearch(v); setPage(1) }} />
+          <SelectInput
+            ariaLabel="Filter status"
+            className="w-full sm:w-48"
+            emptyLabel="Semua Status"
+            options={FILTER_OPTIONS}
+            value={statusFilter}
+            onChange={(v) => { setStatusFilter(v); setPage(1) }}
           />
-          <select className="select" style={{ maxWidth: 180 }} value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1) }}>
-            <option value="">Semua Status</option>
-            <option value="AKTIF">Aktif</option>
-            <option value="LULUS">Lulus (Alumni)</option>
-            <option value="PINDAH">Pindah</option>
-            <option value="DROP_OUT">Drop Out</option>
-          </select>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>NIS</th><th>NISN</th><th>Nama</th><th>JK</th><th>Status</th>
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && <tr><td colSpan={6} className="empty">Memuat…</td></tr>}
-              {!listQuery.isLoading && items.length === 0 && <tr><td colSpan={6} className="empty">Belum ada data</td></tr>}
-              {items.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.nis ?? '-'}</td>
-                  <td>{s.nisn ?? '-'}</td>
-                  <td>{s.fullName}</td>
-                  <td>{s.gender === 'PEREMPUAN' ? 'P' : 'L'}</td>
-                  <td><span className={`pill ${STATUS_PILL[s.status] ?? 'pill-gray'}`}>{s.status}</span></td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {canUpdate && <button className="btn btn-sm btn-secondary" onClick={() => openEdit(s)}>Edit</button>}{' '}
-                    {canDelete && <button className="btn btn-sm btn-danger" onClick={() => setDeleteId(s.id)}>Hapus</button>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {meta && meta.totalPages > 1 && (
-          <div className="pagination">
-            <button className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>‹ Prev</button>
-            <span style={{ fontSize: 13 }}>Hal {meta.page} / {meta.totalPages} ({meta.total} data)</span>
-            <button className="btn btn-sm btn-secondary" disabled={page >= meta.totalPages} onClick={() => setPage((p) => p + 1)}>Next ›</button>
-          </div>
-        )}
-      </div>
+        </Toolbar>
+        <DataTable
+          label="Data siswa"
+          columns={[{ label: 'NIS' }, { label: 'NISN' }, { label: 'Nama' }, { label: 'JK' }, { label: 'Status' }, { label: 'Aksi', align: 'right' }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          renderRow={(s) => [
+            s.nis ?? '-',
+            s.nisn ?? '-',
+            s.fullName,
+            s.gender === 'PEREMPUAN' ? 'P' : 'L',
+            <StatusChip color={STATUS_COLOR[s.status]}>{s.status}</StatusChip>,
+            <EditDeleteActions
+              onEdit={canUpdate ? () => openEdit(s) : undefined}
+              onDelete={canDelete ? () => setDeleteId(s.id) : undefined}
+            />,
+          ]}
+        />
+        <TablePager meta={meta} page={page} onChange={setPage} />
+      </Panel>
 
       <Modal
         open={modalOpen}
@@ -222,36 +233,26 @@ export function StudentsPage() {
         onClose={() => setModalOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>Batal</button>
-            <button className="btn btn-primary" onClick={submit} disabled={saveMutation.isPending}>
+            <Button variant="tertiary" onPress={() => setModalOpen(false)}>Batal</Button>
+            <Button onPress={submit} isPending={saveMutation.isPending}>
               {saveMutation.isPending ? 'Menyimpan…' : 'Simpan'}
-            </button>
+            </Button>
           </>
         }
       >
-        <div className="form-group"><label>Nama Lengkap <span className="req">*</span></label>
-          <input className="input" value={form.fullName ?? ''} onChange={(e) => setForm({ ...form, fullName: e.target.value })} /></div>
-        <div className="grid-2">
-          <div className="form-group"><label>NIS</label><input className="input" value={form.nis ?? ''} onChange={(e) => setForm({ ...form, nis: e.target.value })} /></div>
-          <div className="form-group"><label>NISN</label><input className="input" value={form.nisn ?? ''} onChange={(e) => setForm({ ...form, nisn: e.target.value })} /></div>
-        </div>
-        <div className="grid-2">
-          <div className="form-group"><label>Tempat Lahir</label><input className="input" value={form.birthPlace ?? ''} onChange={(e) => setForm({ ...form, birthPlace: e.target.value })} /></div>
-          <div className="form-group"><label>Tanggal Lahir</label><input className="input" type="date" value={form.birthDate ?? ''} onChange={(e) => setForm({ ...form, birthDate: e.target.value })} /></div>
-        </div>
-        <div className="grid-2">
-          <div className="form-group"><label>Jenis Kelamin</label>
-            <select className="select" value={form.gender} onChange={(e) => setForm({ ...form, gender: e.target.value })}>
-              <option value="LAKI_LAKI">Laki-laki</option><option value="PEREMPUAN">Perempuan</option>
-            </select></div>
-          <div className="form-group"><label>Status</label>
-            <select className="select" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-              <option value="AKTIF">Aktif</option><option value="LULUS">Lulus</option>
-              <option value="PINDAH">Pindah</option><option value="DROP_OUT">Drop Out</option>
-            </select></div>
-        </div>
-        <div className="form-group"><label>Alamat</label><textarea rows={2} value={form.address ?? ''} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
-        <div className="form-group"><label>Telepon</label><input className="input" value={form.phone ?? ''} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+        <FormStack>
+          <TextInput label="Nama Lengkap" required {...bind('fullName')} />
+          <FormGrid>
+            <TextInput label="NIS" {...bind('nis')} />
+            <TextInput label="NISN" {...bind('nisn')} />
+            <TextInput label="Tempat Lahir" {...bind('birthPlace')} />
+            <TextInput label="Tanggal Lahir" type="date" {...bind('birthDate')} />
+            <SelectInput label="Jenis Kelamin" noEmpty options={GENDER_OPTIONS} {...bind('gender')} />
+            <SelectInput label="Status" noEmpty options={STATUS_OPTIONS} {...bind('status')} />
+          </FormGrid>
+          <TextAreaInput label="Alamat" rows={2} {...bind('address')} />
+          <TextInput label="Telepon" {...bind('phone')} />
+        </FormStack>
       </Modal>
 
       <ConfirmDialog

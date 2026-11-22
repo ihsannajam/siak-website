@@ -1,12 +1,18 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient, useQueries } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import type { FieldDef, ModuleConfig } from '../config/modules'
 import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '@heroui/react'
+import { Plus } from '@gravity-ui/icons'
+import {
+  CheckInput, DataTable, EditDeleteActions, FormStack, PageHeader, Panel, SearchBox, SelectInput,
+  TablePager, TextAreaInput, TextInput, Toolbar,
+} from '../components/ui'
 
 type Row = Record<string, any>
 
@@ -81,7 +87,7 @@ export function CrudPage({ config }: { config: ModuleConfig }) {
       setModalOpen(false)
       qc.invalidateQueries({ queryKey: [config.key] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -91,7 +97,7 @@ export function CrudPage({ config }: { config: ModuleConfig }) {
       setDeleteId(null)
       qc.invalidateQueries({ queryKey: [config.key] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   function openCreate() {
@@ -141,100 +147,30 @@ export function CrudPage({ config }: { config: ModuleConfig }) {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>{config.title}</h1>
-        {canCreate && (
-          <button className="btn btn-primary" onClick={openCreate}>
-            + Tambah
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title={config.title}
+        actions={canCreate && <Button onPress={openCreate}><Plus />Tambah</Button>}
+      />
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            className="input search-input"
-            placeholder="Cari…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-          />
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                {config.columns.map((c) => (
-                  <th key={c.key}>{c.label}</th>
-                ))}
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && (
-                <tr>
-                  <td colSpan={config.columns.length + 1} className="empty">
-                    Memuat…
-                  </td>
-                </tr>
-              )}
-              {!listQuery.isLoading && items.length === 0 && (
-                <tr>
-                  <td colSpan={config.columns.length + 1} className="empty">
-                    Belum ada data
-                  </td>
-                </tr>
-              )}
-              {items.map((row) => (
-                <tr key={row.id}>
-                  {config.columns.map((c) => (
-                    <td key={c.key}>
-                      {formatValue(c.accessor ? getNested(row, c.accessor) : row[c.key])}
-                    </td>
-                  ))}
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {canUpdate && (
-                      <button className="btn btn-sm btn-secondary" onClick={() => openEdit(row)}>
-                        Edit
-                      </button>
-                    )}{' '}
-                    {canDelete && (
-                      <button className="btn btn-sm btn-danger" onClick={() => setDeleteId(row.id)}>
-                        Hapus
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {meta && meta.totalPages > 1 && (
-          <div className="pagination">
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              ‹ Prev
-            </button>
-            <span style={{ fontSize: 13 }}>
-              Hal {meta.page} / {meta.totalPages} ({meta.total} data)
-            </span>
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={page >= meta.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next ›
-            </button>
-          </div>
-        )}
-      </div>
+      <Panel>
+        <Toolbar>
+          <SearchBox placeholder="Cari…" value={search} onChange={(v) => { setSearch(v); setPage(1) }} />
+        </Toolbar>
+        <DataTable
+          label={config.title}
+          columns={[...config.columns.map((c) => ({ label: c.label })), { label: 'Aksi', align: 'right' as const }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          renderRow={(row) => [
+            ...config.columns.map((c) => formatValue(c.accessor ? getNested(row, c.accessor) : row[c.key])),
+            <EditDeleteActions
+              onEdit={canUpdate ? () => openEdit(row) : undefined}
+              onDelete={canDelete ? () => setDeleteId(row.id) : undefined}
+            />,
+          ]}
+        />
+        <TablePager meta={meta} page={page} onChange={setPage} />
+      </Panel>
 
       <Modal
         open={modalOpen}
@@ -242,29 +178,25 @@ export function CrudPage({ config }: { config: ModuleConfig }) {
         onClose={() => setModalOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>
-              Batal
-            </button>
-            <button
-              className="btn btn-primary"
-              onClick={validateAndSubmit}
-              disabled={saveMutation.isPending}
-            >
+            <Button variant="tertiary" onPress={() => setModalOpen(false)}>Batal</Button>
+            <Button onPress={validateAndSubmit} isPending={saveMutation.isPending}>
               {saveMutation.isPending ? 'Menyimpan…' : 'Simpan'}
-            </button>
+            </Button>
           </>
         }
       >
-        {config.fields.map((field) => (
-          <FieldInput
-            key={field.name}
-            field={field}
-            value={form[field.name]}
-            error={errors[field.name]}
-            options={field.options ?? optionsMap[field.name]}
-            onChange={(v) => setForm((prev) => ({ ...prev, [field.name]: v }))}
-          />
-        ))}
+        <FormStack>
+          {config.fields.map((field) => (
+            <FieldInput
+              key={field.name}
+              field={field}
+              value={form[field.name]}
+              error={errors[field.name]}
+              options={field.options ?? optionsMap[field.name]}
+              onChange={(v) => setForm((prev) => ({ ...prev, [field.name]: v }))}
+            />
+          ))}
+        </FormStack>
       </Modal>
 
       <ConfirmDialog
@@ -292,48 +224,16 @@ function FieldInput({
   onChange: (v: any) => void
 }) {
   const type = field.type ?? 'text'
-  return (
-    <div className="form-group">
-      {type !== 'checkbox' && (
-        <label>
-          {field.label} {field.required && <span className="req">*</span>}
-        </label>
-      )}
-      {type === 'textarea' ? (
-        <textarea
-          rows={3}
-          value={value ?? ''}
-          placeholder={field.placeholder}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      ) : type === 'select' ? (
-        <select className="select" value={value ?? ''} onChange={(e) => onChange(e.target.value)}>
-          <option value="">— Pilih —</option>
-          {(options ?? []).map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      ) : type === 'checkbox' ? (
-        <div className="checkbox-row">
-          <input
-            type="checkbox"
-            checked={!!value}
-            onChange={(e) => onChange(e.target.checked)}
-          />
-          <label style={{ margin: 0 }}>{field.label}</label>
-        </div>
-      ) : (
-        <input
-          className="input"
-          type={type}
-          value={value ?? ''}
-          placeholder={field.placeholder}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      )}
-      {error && <div className="form-error">{error}</div>}
-    </div>
-  )
+  const common = { label: field.label, value, required: field.required, error, onChange }
+  if (type === 'textarea') return <TextAreaInput {...common} placeholder={field.placeholder} />
+  if (type === 'select') return <SelectInput {...common} options={options ?? []} />
+  if (type === 'checkbox') {
+    return (
+      <div>
+        <CheckInput label={field.label} checked={!!value} onChange={onChange} />
+        {error && <div className="mt-1 text-xs text-danger">{error}</div>}
+      </div>
+    )
+  }
+  return <TextInput {...common} type={type} placeholder={field.placeholder} />
 }

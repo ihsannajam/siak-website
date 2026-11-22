@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react'
+import { Modal as HeroModal } from '@heroui/react'
 
 interface ModalProps {
   open: boolean
@@ -6,22 +7,22 @@ interface ModalProps {
   onClose: () => void
   children: ReactNode
   footer?: ReactNode
+  size?: 'sm' | 'md' | 'lg'
 }
 
-export function Modal({ open, title, onClose, children, footer }: ModalProps) {
-  if (!open) return null
+export function Modal({ open, title, onClose, children, footer, size = 'lg' }: ModalProps) {
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>{title}</h3>
-          <button className="btn btn-sm btn-secondary" onClick={onClose}>
-            ✕
-          </button>
-        </div>
-        <div className="modal-body">{children}</div>
-        {footer && <div className="modal-footer">{footer}</div>}
-      </div>
-    </div>
+    <HeroModal.Backdrop isOpen={open} onOpenChange={(next) => !next && onClose()}>
+      <HeroModal.Container scroll="inside" size={size}>
+        <HeroModal.Dialog>
+          <HeroModal.CloseTrigger aria-label="Tutup" />
+          <HeroModal.Header>
+            <HeroModal.Heading>{title}</HeroModal.Heading>
+          </HeroModal.Header>
+          <HeroModal.Body>{children}</HeroModal.Body>
+          {footer && <HeroModal.Footer>{footer}</HeroModal.Footer>}
+        </HeroModal.Dialog>
+      </HeroModal.Container>
+    </HeroModal.Backdrop>
   )
 }

@@ -1,10 +1,16 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../auth/AuthContext'
+import { Button, Link } from '@heroui/react'
+import { ArrowUpFromLine } from '@gravity-ui/icons'
+import {
+  DataTable, FormStack, Loader, PageHeader, Panel, RowActions, SearchBox, SectionTitle, SelectInput,
+  StatusChip, TablePager, Toolbar,
+} from '../components/ui'
 
 type Row = Record<string, any>
 
@@ -38,82 +44,27 @@ export function StudentDocumentsPage() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Dokumen Siswa</h1>
-      </div>
+      <PageHeader title="Dokumen Siswa" />
 
-      <div className="card">
-        <div className="toolbar">
-          <input
-            className="input search-input"
-            placeholder="Cari siswa (nama / NIS)…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-          />
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>NIS</th>
-                <th>Nama</th>
-                <th>Kelas</th>
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && (
-                <tr>
-                  <td colSpan={4} className="empty">
-                    Memuat…
-                  </td>
-                </tr>
-              )}
-              {!listQuery.isLoading && items.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="empty">
-                    Belum ada siswa
-                  </td>
-                </tr>
-              )}
-              {items.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.nis ?? '-'}</td>
-                  <td>{s.fullName}</td>
-                  <td>{s.classAssignments?.[0]?.class?.name ?? '-'}</td>
-                  <td style={{ textAlign: 'right' }}>
-                    <button className="btn btn-sm btn-secondary" onClick={() => setActiveStudent(s)}>
-                      Kelola Dokumen
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {meta && meta.totalPages > 1 && (
-          <div className="pagination">
-            <button className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </button>
-            <span style={{ fontSize: 13 }}>
-              Hal {meta.page} / {meta.totalPages} ({meta.total})
-            </span>
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={page >= meta.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next ›
-            </button>
-          </div>
-        )}
-      </div>
+      <Panel>
+        <Toolbar>
+          <SearchBox placeholder="Cari siswa (nama / NIS)…" value={search} onChange={(v) => { setSearch(v); setPage(1) }} />
+        </Toolbar>
+        <DataTable
+          label="Daftar siswa"
+          columns={[{ label: 'NIS' }, { label: 'Nama' }, { label: 'Kelas' }, { label: 'Aksi', align: 'right' }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          emptyText="Belum ada siswa"
+          renderRow={(s) => [
+            s.nis ?? '-',
+            s.fullName,
+            s.classAssignments?.[0]?.class?.name ?? '-',
+            <RowActions><Button size="sm" variant="tertiary" onPress={() => setActiveStudent(s)}>Kelola Dokumen</Button></RowActions>,
+          ]}
+        />
+        <TablePager meta={meta} page={page} onChange={setPage} />
+      </Panel>
 
       {activeStudent && (
         <DocumentManager student={activeStudent} canUpload={canUpload} onClose={() => setActiveStudent(null)} />
@@ -156,7 +107,7 @@ function DocumentManager({
       toast.success('Dokumen diunggah')
       qc.invalidateQueries({ queryKey: ['student-docs', student.id] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const docs = docsQuery.data ?? []
@@ -166,58 +117,41 @@ function DocumentManager({
       open
       title={`Dokumen — ${student.fullName}`}
       onClose={onClose}
-      footer={
-        <button className="btn btn-secondary" onClick={onClose}>
-          Tutup
-        </button>
-      }
+      footer={<Button variant="tertiary" onPress={onClose}>Tutup</Button>}
     >
-      {canUpload && (
-        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 14 }}>
-          <div className="form-group" style={{ margin: 0, flex: 1 }}>
-            <label>Jenis Dokumen</label>
-            <select className="select" value={docType} onChange={(e) => setDocType(e.target.value)}>
-              {DOC_TYPES.map((d) => (
-                <option key={d.value} value={d.value}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
+      <FormStack>
+        {canUpload && (
+          <div className="flex items-end gap-2">
+            <SelectInput label="Jenis Dokumen" noEmpty options={DOC_TYPES} value={docType} onChange={setDocType} />
+            <Button onPress={() => fileRef.current?.click()} isPending={uploadMutation.isPending}>
+              <ArrowUpFromLine />{uploadMutation.isPending ? 'Mengunggah…' : 'Upload'}
+            </Button>
+            <input
+              ref={fileRef}
+              type="file"
+              hidden
+              accept=".pdf,.jpg,.jpeg,.png"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) uploadMutation.mutate(f)
+                e.target.value = ''
+              }}
+            />
           </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploadMutation.isPending}
-          >
-            {uploadMutation.isPending ? 'Mengunggah…' : '⬆️ Upload'}
-          </button>
-          <input
-            ref={fileRef}
-            type="file"
-            hidden
-            accept=".pdf,.jpg,.jpeg,.png"
-            onChange={(e) => {
-              const f = e.target.files?.[0]
-              if (f) uploadMutation.mutate(f)
-              e.target.value = ''
-            }}
-          />
-        </div>
-      )}
+        )}
 
-      <h4 style={{ marginTop: 0 }}>Dokumen Tersimpan</h4>
-      {docsQuery.isLoading && <p>Memuat…</p>}
-      {!docsQuery.isLoading && docs.length === 0 && <p style={{ color: 'var(--muted)' }}>Belum ada dokumen.</p>}
-      <ul style={{ paddingLeft: 0, listStyle: 'none' }}>
-        {docs.map((d) => (
-          <li key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <span className="pill pill-gray">{d.docType}</span>
-            <a href={d.filePath} target="_blank" rel="noreferrer" style={{ color: 'var(--info)' }}>
-              {d.fileName}
-            </a>
-          </li>
-        ))}
-      </ul>
+        <SectionTitle>Dokumen Tersimpan</SectionTitle>
+        {docsQuery.isLoading && <Loader />}
+        {!docsQuery.isLoading && docs.length === 0 && <p className="text-muted">Belum ada dokumen.</p>}
+        <ul className="flex flex-col gap-2">
+          {docs.map((d) => (
+            <li key={d.id} className="flex flex-wrap items-center gap-2">
+              <StatusChip>{d.docType}</StatusChip>
+              <Link href={d.filePath} target="_blank" rel="noreferrer">{d.fileName}</Link>
+            </li>
+          ))}
+        </ul>
+      </FormStack>
     </Modal>
   )
 }

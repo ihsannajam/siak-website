@@ -1,17 +1,23 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../auth/AuthContext'
+import { Button, Label, Link } from '@heroui/react'
+import { ArrowUpFromLine, Check, Plus, Xmark } from '@gravity-ui/icons'
+import {
+  DataTable, FormGrid, FormStack, PageHeader, Panel, RowActions, SelectInput, StatusChip,
+  TablePager, TextInput, Toolbar, type ChipColor,
+} from '../components/ui'
 
 type Row = Record<string, any>
 
-const STATUS_PILL: Record<string, string> = {
-  MENUNGGU_VERIFIKASI: 'pill-yellow',
-  LUNAS: 'pill-green',
-  DITOLAK: 'pill-red',
+const STATUS_COLOR: Record<string, ChipColor> = {
+  MENUNGGU_VERIFIKASI: 'warning',
+  LUNAS: 'success',
+  DITOLAK: 'danger',
 }
 const rupiah = (n?: number) => 'Rp ' + (n ?? 0).toLocaleString('id-ID')
 const label = (s?: string) => (s ?? '').replaceAll('_', ' ')
@@ -63,7 +69,7 @@ export function PaymentsPage() {
       setFile(null)
       qc.invalidateQueries({ queryKey: ['payments'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const verifyMutation = useMutation({
@@ -73,137 +79,65 @@ export function PaymentsPage() {
       toast.success('Verifikasi disimpan')
       qc.invalidateQueries({ queryKey: ['payments'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const items = listQuery.data?.data ?? []
   const meta = listQuery.data?.meta
 
   function submit() {
-    if (!form.invoiceId) return toast.error('Tagihan wajib dipilih')
-    if (!form.amount) return toast.error('Jumlah wajib diisi')
+    if (!form.invoiceId) return toast.danger('Tagihan wajib dipilih')
+    if (!form.amount) return toast.danger('Jumlah wajib diisi')
     createMutation.mutate()
   }
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Pembayaran</h1>
-        {canCreate && (
-          <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-            + Catat Pembayaran
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Pembayaran"
+        actions={canCreate && <Button onPress={() => setCreateOpen(true)}><Plus />Catat Pembayaran</Button>}
+      />
 
-      <div className="card">
-        <div className="toolbar">
-          <select
-            className="select"
-            style={{ maxWidth: 240 }}
+      <Panel>
+        <Toolbar>
+          <SelectInput
+            ariaLabel="Filter status"
+            className="w-full sm:w-60"
+            emptyLabel="Semua Status"
+            options={[
+              { value: 'MENUNGGU_VERIFIKASI', label: 'Menunggu Verifikasi' },
+              { value: 'LUNAS', label: 'Lunas' },
+              { value: 'DITOLAK', label: 'Ditolak' },
+            ]}
             value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value)
-              setPage(1)
-            }}
-          >
-            <option value="">Semua Status</option>
-            <option value="MENUNGGU_VERIFIKASI">Menunggu Verifikasi</option>
-            <option value="LUNAS">Lunas</option>
-            <option value="DITOLAK">Ditolak</option>
-          </select>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>No. Tagihan</th>
-                <th>Siswa</th>
-                <th>Jumlah</th>
-                <th>Metode</th>
-                <th>Bukti</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && (
-                <tr>
-                  <td colSpan={7} className="empty">
-                    Memuat…
-                  </td>
-                </tr>
-              )}
-              {!listQuery.isLoading && items.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="empty">
-                    Belum ada pembayaran
-                  </td>
-                </tr>
-              )}
-              {items.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.invoice?.invoiceNumber ?? '-'}</td>
-                  <td>{r.invoice?.student?.fullName ?? '-'}</td>
-                  <td>{rupiah(r.amount)}</td>
-                  <td>{r.method ?? '-'}</td>
-                  <td>
-                    {r.proofPath ? (
-                      <a href={r.proofPath} target="_blank" rel="noreferrer" style={{ color: 'var(--info)' }}>
-                        Lihat
-                      </a>
-                    ) : (
-                      '-'
-                    )}
-                  </td>
-                  <td>
-                    <span className={`pill ${STATUS_PILL[r.status] ?? 'pill-gray'}`}>{label(r.status)}</span>
-                  </td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {canUpdate && r.status === 'MENUNGGU_VERIFIKASI' ? (
-                      <>
-                        <button
-                          className="btn btn-sm btn-primary"
-                          onClick={() => verifyMutation.mutate({ id: r.id, approved: true })}
-                        >
-                          Setujui
-                        </button>{' '}
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => verifyMutation.mutate({ id: r.id, approved: false })}
-                        >
-                          Tolak
-                        </button>
-                      </>
-                    ) : (
-                      <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {meta && meta.totalPages > 1 && (
-          <div className="pagination">
-            <button className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </button>
-            <span style={{ fontSize: 13 }}>
-              Hal {meta.page} / {meta.totalPages} ({meta.total})
-            </span>
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={page >= meta.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next ›
-            </button>
-          </div>
-        )}
-      </div>
+            onChange={(v) => { setStatusFilter(v); setPage(1) }}
+          />
+        </Toolbar>
+        <DataTable
+          label="Daftar pembayaran"
+          columns={[{ label: 'No. Tagihan' }, { label: 'Siswa' }, { label: 'Jumlah' }, { label: 'Metode' }, { label: 'Bukti' }, { label: 'Status' }, { label: 'Aksi', align: 'right' }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          emptyText="Belum ada pembayaran"
+          renderRow={(r) => [
+            r.invoice?.invoiceNumber ?? '-',
+            r.invoice?.student?.fullName ?? '-',
+            rupiah(r.amount),
+            r.method ?? '-',
+            r.proofPath ? <Link href={r.proofPath} target="_blank" rel="noreferrer">Lihat</Link> : '-',
+            <StatusChip color={STATUS_COLOR[r.status]}>{label(r.status)}</StatusChip>,
+            canUpdate && r.status === 'MENUNGGU_VERIFIKASI' ? (
+              <RowActions>
+                <Button size="sm" onPress={() => verifyMutation.mutate({ id: r.id, approved: true })}><Check />Setujui</Button>
+                <Button size="sm" variant="danger-soft" onPress={() => verifyMutation.mutate({ id: r.id, approved: false })}><Xmark />Tolak</Button>
+              </RowActions>
+            ) : (
+              <span className="text-xs text-muted">—</span>
+            ),
+          ]}
+        />
+        <TablePager meta={meta} page={page} onChange={setPage} />
+      </Panel>
 
       <Modal
         open={createOpen}
@@ -211,64 +145,37 @@ export function PaymentsPage() {
         onClose={() => setCreateOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setCreateOpen(false)}>
-              Batal
-            </button>
-            <button className="btn btn-primary" onClick={submit} disabled={createMutation.isPending}>
+            <Button variant="tertiary" onPress={() => setCreateOpen(false)}>Batal</Button>
+            <Button onPress={submit} isPending={createMutation.isPending}>
               {createMutation.isPending ? 'Menyimpan…' : 'Simpan'}
-            </button>
+            </Button>
           </>
         }
       >
-        <div className="form-group">
-          <label>
-            Tagihan <span className="req">*</span>
-          </label>
-          <select
-            className="select"
-            value={form.invoiceId ?? ''}
-            onChange={(e) => {
-              const inv = (invoicesQuery.data ?? []).find((i) => i.id === e.target.value)
-              setForm({ ...form, invoiceId: e.target.value, amount: form.amount ?? inv?.amount })
+        <FormStack>
+          <SelectInput
+            label="Tagihan"
+            required
+            value={form.invoiceId}
+            options={(invoicesQuery.data ?? []).map((i) => ({
+              value: i.id,
+              label: `${i.invoiceNumber} — ${i.student?.fullName ?? ''} (${rupiah(i.amount)})`,
+            }))}
+            onChange={(v) => {
+              const inv = (invoicesQuery.data ?? []).find((i) => i.id === v)
+              setForm({ ...form, invoiceId: v, amount: form.amount ?? inv?.amount })
             }}
-          >
-            <option value="">— Pilih —</option>
-            {(invoicesQuery.data ?? []).map((i) => (
-              <option key={i.id} value={i.id}>
-                {i.invoiceNumber} — {i.student?.fullName ?? ''} ({rupiah(i.amount)})
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="grid-2">
-          <div className="form-group">
-            <label>
-              Jumlah Bayar (Rp) <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              type="number"
-              value={form.amount ?? ''}
-              onChange={(e) => setForm({ ...form, amount: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>Metode</label>
-            <input
-              className="input"
-              placeholder="Transfer / Tunai"
-              value={form.method ?? ''}
-              onChange={(e) => setForm({ ...form, method: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="form-group">
-          <label>Bukti Bayar (opsional)</label>
-          <div>
-            <button type="button" className="btn btn-sm btn-secondary" onClick={() => fileRef.current?.click()}>
-              ⬆️ Pilih Berkas
-            </button>{' '}
-            <span style={{ fontSize: 13, color: 'var(--muted)' }}>{file ? file.name : 'Belum ada berkas'}</span>
+          />
+          <FormGrid>
+            <TextInput label="Jumlah Bayar (Rp)" type="number" required value={form.amount} onChange={(v) => setForm({ ...form, amount: v })} />
+            <TextInput label="Metode" placeholder="Transfer / Tunai" value={form.method} onChange={(v) => setForm({ ...form, method: v })} />
+          </FormGrid>
+          <div className="flex flex-col gap-1.5">
+            <Label>Bukti Bayar (opsional)</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" variant="tertiary" onPress={() => fileRef.current?.click()}><ArrowUpFromLine />Pilih Berkas</Button>
+              <span className="text-[13px] text-muted">{file ? file.name : 'Belum ada berkas'}</span>
+            </div>
             <input
               ref={fileRef}
               type="file"
@@ -277,7 +184,7 @@ export function PaymentsPage() {
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
           </div>
-        </div>
+        </FormStack>
       </Modal>
     </div>
   )

@@ -1,18 +1,24 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import toast from 'react-hot-toast'
+import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../auth/AuthContext'
+import { Button } from '@heroui/react'
+import { Check, Plus, Xmark } from '@gravity-ui/icons'
+import {
+  DataTable, FormGrid, FormStack, PageHeader, Panel, RowActions, SelectInput, StatusChip,
+  TablePager, TextAreaInput, TextInput, Toolbar, type ChipColor,
+} from '../components/ui'
 
 type Row = Record<string, any>
 
 const TYPE_LABEL: Record<string, string> = { IZIN: 'Izin', CUTI: 'Cuti', SAKIT: 'Sakit' }
-const STATUS_PILL: Record<string, string> = {
-  DIAJUKAN: 'pill-yellow',
-  DISETUJUI: 'pill-green',
-  DITOLAK: 'pill-red',
+const STATUS_COLOR: Record<string, ChipColor> = {
+  DIAJUKAN: 'warning',
+  DISETUJUI: 'success',
+  DITOLAK: 'danger',
 }
 const fmtDate = (v?: string) => (v ? v.slice(0, 10) : '-')
 
@@ -53,7 +59,7 @@ export function LeaveRequestsPage() {
       setForm({ type: 'IZIN' })
       qc.invalidateQueries({ queryKey: ['leave-requests'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const decisionMutation = useMutation({
@@ -63,129 +69,65 @@ export function LeaveRequestsPage() {
       toast.success('Keputusan disimpan')
       qc.invalidateQueries({ queryKey: ['leave-requests'] })
     },
-    onError: (e) => toast.error(getErrorMessage(e)),
+    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const items = listQuery.data?.data ?? []
   const meta = listQuery.data?.meta
 
   function submit() {
-    if (!form.employeeId) return toast.error('Pegawai wajib dipilih')
-    if (!form.startDate || !form.endDate) return toast.error('Tanggal wajib diisi')
+    if (!form.employeeId) return toast.danger('Pegawai wajib dipilih')
+    if (!form.startDate || !form.endDate) return toast.danger('Tanggal wajib diisi')
     createMutation.mutate(form)
   }
 
   return (
     <div>
-      <div className="page-header">
-        <h1>Cuti / Izin</h1>
-        {canCreate && (
-          <button className="btn btn-primary" onClick={() => setCreateOpen(true)}>
-            + Ajukan Izin/Cuti
-          </button>
-        )}
-      </div>
+      <PageHeader
+        title="Cuti / Izin"
+        actions={canCreate && <Button onPress={() => setCreateOpen(true)}><Plus />Ajukan Izin/Cuti</Button>}
+      />
 
-      <div className="card">
-        <div className="toolbar">
-          <select
-            className="select"
-            style={{ maxWidth: 220 }}
+      <Panel>
+        <Toolbar>
+          <SelectInput
+            ariaLabel="Filter status"
+            className="w-full sm:w-56"
+            emptyLabel="Semua Status"
+            options={[
+              { value: 'DIAJUKAN', label: 'Diajukan' },
+              { value: 'DISETUJUI', label: 'Disetujui' },
+              { value: 'DITOLAK', label: 'Ditolak' },
+            ]}
             value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.target.value)
-              setPage(1)
-            }}
-          >
-            <option value="">Semua Status</option>
-            <option value="DIAJUKAN">Diajukan</option>
-            <option value="DISETUJUI">Disetujui</option>
-            <option value="DITOLAK">Ditolak</option>
-          </select>
-        </div>
-
-        <div style={{ overflowX: 'auto' }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Pegawai</th>
-                <th>Jenis</th>
-                <th>Mulai</th>
-                <th>Selesai</th>
-                <th>Alasan</th>
-                <th>Status</th>
-                <th style={{ textAlign: 'right' }}>Aksi</th>
-              </tr>
-            </thead>
-            <tbody>
-              {listQuery.isLoading && (
-                <tr>
-                  <td colSpan={7} className="empty">
-                    Memuat…
-                  </td>
-                </tr>
-              )}
-              {!listQuery.isLoading && items.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="empty">
-                    Belum ada pengajuan
-                  </td>
-                </tr>
-              )}
-              {items.map((r) => (
-                <tr key={r.id}>
-                  <td>{r.employee?.fullName ?? '-'}</td>
-                  <td>{TYPE_LABEL[r.type] ?? r.type}</td>
-                  <td>{fmtDate(r.startDate)}</td>
-                  <td>{fmtDate(r.endDate)}</td>
-                  <td>{r.reason ?? '-'}</td>
-                  <td>
-                    <span className={`pill ${STATUS_PILL[r.status] ?? 'pill-gray'}`}>{r.status}</span>
-                  </td>
-                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                    {canUpdate && r.status === 'DIAJUKAN' ? (
-                      <>
-                        <button
-                          className="btn btn-sm btn-primary"
-                          onClick={() => decisionMutation.mutate({ id: r.id, status: 'DISETUJUI' })}
-                        >
-                          Setujui
-                        </button>{' '}
-                        <button
-                          className="btn btn-sm btn-danger"
-                          onClick={() => decisionMutation.mutate({ id: r.id, status: 'DITOLAK' })}
-                        >
-                          Tolak
-                        </button>
-                      </>
-                    ) : (
-                      <span style={{ color: 'var(--muted)', fontSize: 12 }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {meta && meta.totalPages > 1 && (
-          <div className="pagination">
-            <button className="btn btn-sm btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)}>
-              ‹ Prev
-            </button>
-            <span style={{ fontSize: 13 }}>
-              Hal {meta.page} / {meta.totalPages} ({meta.total})
-            </span>
-            <button
-              className="btn btn-sm btn-secondary"
-              disabled={page >= meta.totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Next ›
-            </button>
-          </div>
-        )}
-      </div>
+            onChange={(v) => { setStatusFilter(v); setPage(1) }}
+          />
+        </Toolbar>
+        <DataTable
+          label="Daftar pengajuan"
+          columns={[{ label: 'Pegawai' }, { label: 'Jenis' }, { label: 'Mulai' }, { label: 'Selesai' }, { label: 'Alasan' }, { label: 'Status' }, { label: 'Aksi', align: 'right' }]}
+          rows={items}
+          isLoading={listQuery.isLoading}
+          emptyText="Belum ada pengajuan"
+          renderRow={(r) => [
+            r.employee?.fullName ?? '-',
+            TYPE_LABEL[r.type] ?? r.type,
+            fmtDate(r.startDate),
+            fmtDate(r.endDate),
+            r.reason ?? '-',
+            <StatusChip color={STATUS_COLOR[r.status]}>{r.status}</StatusChip>,
+            canUpdate && r.status === 'DIAJUKAN' ? (
+              <RowActions>
+                <Button size="sm" onPress={() => decisionMutation.mutate({ id: r.id, status: 'DISETUJUI' })}><Check />Setujui</Button>
+                <Button size="sm" variant="danger-soft" onPress={() => decisionMutation.mutate({ id: r.id, status: 'DITOLAK' })}><Xmark />Tolak</Button>
+              </RowActions>
+            ) : (
+              <span className="text-xs text-muted">—</span>
+            ),
+          ]}
+        />
+        <TablePager meta={meta} page={page} onChange={setPage} />
+      </Panel>
 
       <Modal
         open={createOpen}
@@ -193,68 +135,24 @@ export function LeaveRequestsPage() {
         onClose={() => setCreateOpen(false)}
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setCreateOpen(false)}>
-              Batal
-            </button>
-            <button className="btn btn-primary" onClick={submit} disabled={createMutation.isPending}>
+            <Button variant="tertiary" onPress={() => setCreateOpen(false)}>Batal</Button>
+            <Button onPress={submit} isPending={createMutation.isPending}>
               {createMutation.isPending ? 'Menyimpan…' : 'Simpan'}
-            </button>
+            </Button>
           </>
         }
       >
-        <div className="form-group">
-          <label>
-            Pegawai <span className="req">*</span>
-          </label>
-          <select
-            className="select"
-            value={form.employeeId ?? ''}
-            onChange={(e) => setForm({ ...form, employeeId: e.target.value })}
-          >
-            <option value="">— Pilih —</option>
-            {(employeesQuery.data ?? []).map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.fullName}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Jenis</label>
-          <select className="select" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-            <option value="IZIN">Izin</option>
-            <option value="CUTI">Cuti</option>
-            <option value="SAKIT">Sakit</option>
-          </select>
-        </div>
-        <div className="grid-2">
-          <div className="form-group">
-            <label>
-              Tanggal Mulai <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              type="date"
-              value={form.startDate ?? ''}
-              onChange={(e) => setForm({ ...form, startDate: e.target.value })}
-            />
-          </div>
-          <div className="form-group">
-            <label>
-              Tanggal Selesai <span className="req">*</span>
-            </label>
-            <input
-              className="input"
-              type="date"
-              value={form.endDate ?? ''}
-              onChange={(e) => setForm({ ...form, endDate: e.target.value })}
-            />
-          </div>
-        </div>
-        <div className="form-group">
-          <label>Alasan</label>
-          <textarea rows={3} value={form.reason ?? ''} onChange={(e) => setForm({ ...form, reason: e.target.value })} />
-        </div>
+        <FormStack>
+          <SelectInput label="Pegawai" required value={form.employeeId} onChange={(v) => setForm({ ...form, employeeId: v })}
+            options={(employeesQuery.data ?? []).map((e) => ({ value: e.id, label: e.fullName }))} />
+          <SelectInput label="Jenis" noEmpty value={form.type} onChange={(v) => setForm({ ...form, type: v })}
+            options={[{ value: 'IZIN', label: 'Izin' }, { value: 'CUTI', label: 'Cuti' }, { value: 'SAKIT', label: 'Sakit' }]} />
+          <FormGrid>
+            <TextInput label="Tanggal Mulai" type="date" required value={form.startDate} onChange={(v) => setForm({ ...form, startDate: v })} />
+            <TextInput label="Tanggal Selesai" type="date" required value={form.endDate} onChange={(v) => setForm({ ...form, endDate: v })} />
+          </FormGrid>
+          <TextAreaInput label="Alasan" value={form.reason} onChange={(v) => setForm({ ...form, reason: v })} />
+        </FormStack>
       </Modal>
     </div>
   )
