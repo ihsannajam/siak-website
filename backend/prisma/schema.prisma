@@ -259,6 +259,71 @@ model SchoolProfile {
   logoPath  String? @map("logo_path")
   headmaster String? @map("headmaster")
 
+  // A. Identitas umum
+  educationLevel    String? @map("education_level")
+  institutionType   String? @map("institution_type")
+  schoolStatus      String? @map("school_status")
+  foundedYear       Int?    @map("founded_year")
+  accreditation     String?
+  accreditationYear Int?    @map("accreditation_year")
+
+  // B. Legalitas dan perizinan
+  establishmentDecreeNumber String?   @map("establishment_decree_number")
+  establishmentDecreeDate   DateTime? @map("establishment_decree_date") @db.Date
+  operationalPermitNumber   String?   @map("operational_permit_number")
+  operationalPermitDate     DateTime? @map("operational_permit_date") @db.Date
+  accreditationDecreeNumber String?   @map("accreditation_decree_number")
+  npwp                      String?
+
+  // C. Alamat dan kontak
+  rtRw          String? @map("rt_rw")
+  village       String?
+  district      String?
+  city          String?
+  province      String?
+  postalCode    String? @map("postal_code")
+  whatsapp      String?
+  googleMapsUrl String? @map("google_maps_url")
+
+  // D. Kepala sekolah (data pribadi: hanya untuk pengguna yang bisa mengubah profil)
+  headmasterNipNik     String?   @map("headmaster_nip_nik")
+  headmasterBirthPlace String?   @map("headmaster_birth_place")
+  headmasterBirthDate  DateTime? @map("headmaster_birth_date") @db.Date
+  headmasterEducation  String?   @map("headmaster_education")
+  headmasterPhone      String?   @map("headmaster_phone")
+  headmasterEmail      String?   @map("headmaster_email")
+  headmasterStartDate  DateTime? @map("headmaster_start_date") @db.Date
+
+  // E. Yayasan
+  foundationName       String? @map("foundation_name")
+  foundationChairman   String? @map("foundation_chairman")
+  foundationAddress    String? @map("foundation_address")
+  foundationPhone      String? @map("foundation_phone")
+  foundationEmail      String? @map("foundation_email")
+  foundationDeedNumber String? @map("foundation_deed_number")
+  foundationSkNumber   String? @map("foundation_sk_number")
+
+  // F. Identitas visual
+  foundationLogoPath String? @map("foundation_logo_path")
+  buildingPhotoPath  String? @map("building_photo_path")
+  tagline            String?
+  vision             String?
+  mission            String?
+  goals              String?
+
+  // G. Operasional
+  operatingHours    String? @map("operating_hours")
+  effectiveDays     String? @map("effective_days")
+  entryTime         String? @map("entry_time")
+  educationPrograms String? @map("education_programs")
+
+  // H. Digital
+  facebookUrl      String? @map("facebook_url")
+  instagramUrl     String? @map("instagram_url")
+  youtubeUrl       String? @map("youtube_url")
+  tiktokUrl        String? @map("tiktok_url")
+  whatsappCenterUrl String? @map("whatsapp_center_url")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by")

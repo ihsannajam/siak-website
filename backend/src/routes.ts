@@ -16,6 +16,7 @@ import {
   auditLogsRouter,
   menuRouter,
 } from './modules/rbac/rbac.routes';
+import schoolProfileRoutes from './modules/schoolProfile/schoolProfile.routes';
 import { buildMasterDataRouters } from './modules/masterData';
 
 export const apiRouter = Router();
@@ -40,6 +41,8 @@ apiRouter.use('/report-cards', reportCardsRoutes);
 apiRouter.use('/payments', paymentsRoutes);
 apiRouter.use('/leave-requests', leaveRequestsRoutes);
 apiRouter.use('/dashboard', dashboardRoutes);
+
+apiRouter.use('/school-profile', schoolProfileRoutes);
 
 // Generic CRUD master-data modules
 for (const { path, router } of buildMasterDataRouters()) {

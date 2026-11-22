@@ -5,18 +5,6 @@ const optionalString = z.string().trim().optional().nullable();
 const dateString = z.coerce.date();
 const optionalDate = z.coerce.date().optional().nullable();
 
-// ---- School profile ----
-export const schoolProfileSchema = z.object({
-  name: z.string().min(1, 'Nama sekolah wajib diisi'),
-  npsn: optionalString,
-  address: optionalString,
-  phone: optionalString,
-  email: z.string().email().optional().nullable().or(z.literal('')),
-  website: optionalString,
-  logoPath: optionalString,
-  headmaster: optionalString,
-});
-
 // ---- Academic year ----
 export const academicYearSchema = z.object({
   name: z.string().min(4, 'Format tahun ajaran mis. 2025/2026'),

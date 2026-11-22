@@ -18,16 +18,6 @@ export function buildMasterDataRouters(): MountedRouter[] {
   return [
     // ---- Master Data Institusi ----
     {
-      path: '/school-profile',
-      router: createCrudRouter({
-        permissionKey: 'school-profile',
-        modelName: 'schoolProfile',
-        searchFields: ['name', 'npsn'],
-        createSchema: s.schoolProfileSchema,
-        updateSchema: s.schoolProfileSchema.partial(),
-      }),
-    },
-    {
       path: '/academic-years',
       router: createCrudRouter({
         permissionKey: 'academic-years',

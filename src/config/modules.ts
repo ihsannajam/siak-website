@@ -91,28 +91,6 @@ export const MODULE_CONFIGS: Record<string, ModuleConfig> = {
     ],
   },
 
-  'school-profile': {
-    key: 'school-profile',
-    title: 'Identitas Sekolah',
-    apiPath: '/school-profile',
-    permissionKey: 'school-profile',
-    columns: [
-      { key: 'name', label: 'Nama Sekolah' },
-      { key: 'npsn', label: 'NPSN' },
-      { key: 'phone', label: 'Telepon' },
-      { key: 'headmaster', label: 'Kepala Sekolah' },
-    ],
-    fields: [
-      { name: 'name', label: 'Nama Sekolah', required: true },
-      { name: 'npsn', label: 'NPSN' },
-      { name: 'address', label: 'Alamat', type: 'textarea' },
-      { name: 'phone', label: 'Telepon' },
-      { name: 'email', label: 'Email' },
-      { name: 'website', label: 'Website' },
-      { name: 'headmaster', label: 'Kepala Sekolah' },
-    ],
-  },
-
   'teacher-subjects': {
     key: 'teacher-subjects',
     title: 'Mapping Guru - Mapel',
