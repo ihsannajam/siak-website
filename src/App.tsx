@@ -53,7 +53,8 @@ function ModulePage() {
       </div>
     )
   }
-  return <CrudPage config={config} />
+  // Key wajib: tiap modul punya kolom sendiri, dan tabel tidak bisa mengganti kolom di tempat.
+  return <CrudPage key={config.key} config={config} />
 }
 
 export default function App() {
