@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@heroui/react'
-import { api, getErrorMessage } from '../lib/api'
+import { api, getErrorMessage, openPrivateFile } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../auth/AuthContext'
@@ -124,7 +124,7 @@ export function PaymentsPage() {
             r.invoice?.student?.fullName ?? '-',
             rupiah(r.amount),
             r.method ?? '-',
-            r.proofPath ? <Link href={r.proofPath} target="_blank" rel="noreferrer">Lihat</Link> : '-',
+            r.hasProof ? <Link className="cursor-pointer" onPress={() => openPrivateFile(`/payments/${r.id}/proof-url`)}>Lihat</Link> : '-',
             <StatusChip color={STATUS_COLOR[r.status]}>{label(r.status)}</StatusChip>,
             canUpdate && r.status === 'MENUNGGU_VERIFIKASI' ? (
               <RowActions>

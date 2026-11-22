@@ -42,6 +42,8 @@ export const env = {
     projectRef: process.env.STORAGE_PROJECT_REF ?? '',
     region: process.env.STORAGE_REGION ?? 'ap-southeast-1',
     bucketName: process.env.STORAGE_BUCKET_NAME ?? 'uploads',
+    // Bucket untuk dokumen siswa, PPDB, pegawai, dan bukti bayar. Wajib private di Supabase.
+    privateBucketName: process.env.STORAGE_PRIVATE_BUCKET_NAME ?? 'student-documents',
   },
 
   loginRate: {

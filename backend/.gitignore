@@ -1,6 +1,7 @@
 node_modules/
 dist/
 .env
+private-files-migration-*.json
 uploads/*
 !uploads/.gitkeep
 npm-debug.log*

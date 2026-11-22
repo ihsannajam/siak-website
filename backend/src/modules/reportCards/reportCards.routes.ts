@@ -1,3 +1,4 @@
+import { studentSummary } from '../../common/personSelect';
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../../middlewares/auth';
@@ -30,14 +31,14 @@ router.get('/', requirePermission('report-cards.read'), asyncHandler(async (req,
   if (req.query.studentId) where.studentId = req.query.studentId;
   if (req.query.status) where.status = req.query.status;
   const [items, total] = await Promise.all([
-    prisma.reportCard.findMany({ where, include: { student: true, class: true }, orderBy: { createdAt: 'desc' }, skip: params.skip, take: params.limit }),
+    prisma.reportCard.findMany({ where, include: { student: studentSummary, class: true }, orderBy: { createdAt: 'desc' }, skip: params.skip, take: params.limit }),
     prisma.reportCard.count({ where }),
   ]);
   return success(res, items, 'Berhasil', 200, buildMeta(total, params));
 }));
 
 router.get('/:id', requirePermission('report-cards.read'), asyncHandler(async (req, res) => {
-  const item = await prisma.reportCard.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { student: true, class: true } });
+  const item = await prisma.reportCard.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { student: studentSummary, class: true } });
   if (!item) throw ApiError.notFound('Rapor tidak ditemukan');
   return success(res, item);
 }));
@@ -114,7 +115,7 @@ router.post('/:id/approve', requirePermission('report-cards.update'), asyncHandl
 router.get('/:id/pdf', requirePermission('report-cards.read'), asyncHandler(async (req, res) => {
   const card = await prisma.reportCard.findFirst({
     where: { id: req.params.id, deletedAt: null },
-    include: { student: true, class: true },
+    include: { student: studentSummary, class: true },
   });
   if (!card) throw ApiError.notFound('Rapor tidak ditemukan');
 

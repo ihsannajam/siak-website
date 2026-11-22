@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@heroui/react'
-import { api, getErrorMessage } from '../lib/api'
+import { api, getErrorMessage, openPrivateFile } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../auth/AuthContext'
@@ -253,7 +253,9 @@ function PpdbDetail({ id, canUpdate, onClose }: { id: string; canUpdate: boolean
           {(reg.documents ?? []).length === 0 && <p className="text-muted">Belum ada dokumen.</p>}
           {(reg.documents ?? []).map((d: Reg) => (
             <div key={d.id} className="flex flex-wrap items-center gap-2">
-              <Link href={d.filePath} target="_blank" rel="noreferrer">{d.fileName}</Link>
+              {canUpdate
+                ? <Link className="cursor-pointer" onPress={() => openPrivateFile(`/ppdb/${id}/documents/${d.id}/url`)}>{d.fileName}</Link>
+                : <span>{d.fileName}</span>}
               <StatusChip color={d.isVerified ? 'success' : 'warning'}>{d.isVerified ? 'Terverifikasi' : 'Belum'}</StatusChip>
               {canUpdate && (
                 <Button size="sm" variant="ghost" onPress={() => verifyDoc.mutate({ documentId: d.id, isVerified: !d.isVerified })}>

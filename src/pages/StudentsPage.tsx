@@ -1,17 +1,18 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@heroui/react'
 import { api, getErrorMessage } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
-import { Modal } from '../components/Modal'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/AuthContext'
 import { Button } from '@heroui/react'
-import { ArrowDownToLine, ArrowUpFromLine, Plus } from '@gravity-ui/icons'
+import { ArrowDownToLine, ArrowUpFromLine, Eye, PencilToSquare, Plus, TrashBin } from '@gravity-ui/icons'
 import {
-  DataTable, EditDeleteActions, FormGrid, FormStack, PageHeader, Panel, SearchBox, SelectInput,
-  StatusChip, TablePager, TextAreaInput, TextInput, Toolbar, type ChipColor,
+  DataTable, IconAction, PageHeader, Panel, RowActions, SearchBox, SelectInput, StatusChip,
+  TablePager, Toolbar, type ChipColor,
 } from '../components/ui'
+import { STUDENT_STATUS_LABEL, STUDENT_STATUS_OPTIONS } from '../config/studentFields'
 
 type Student = Record<string, any>
 
@@ -19,25 +20,23 @@ const STATUS_COLOR: Record<string, ChipColor> = {
   AKTIF: 'success',
   LULUS: 'info',
   PINDAH: 'warning',
+  NONAKTIF: 'default',
+  MENGUNDURKAN_DIRI: 'danger',
   DROP_OUT: 'danger',
 }
-const GENDER_OPTIONS = [{ value: 'LAKI_LAKI', label: 'Laki-laki' }, { value: 'PEREMPUAN', label: 'Perempuan' }]
-const STATUS_OPTIONS = [
-  { value: 'AKTIF', label: 'Aktif' }, { value: 'LULUS', label: 'Lulus' },
-  { value: 'PINDAH', label: 'Pindah' }, { value: 'DROP_OUT', label: 'Drop Out' },
+const FILTER_OPTIONS = [
+  ...STUDENT_STATUS_OPTIONS.map((o) => (o.value === 'LULUS' ? { ...o, label: 'Lulus (Alumni)' } : o)),
+  { value: 'DROP_OUT', label: 'Drop Out' },
 ]
-const FILTER_OPTIONS = STATUS_OPTIONS.map((o) => (o.value === 'LULUS' ? { ...o, label: 'Lulus (Alumni)' } : o))
 
 export function StudentsPage() {
   const qc = useQueryClient()
   const { hasPermission } = useAuth()
+  const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
   const [page, setPage] = useState(1)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
-  const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<Student | null>(null)
-  const [form, setForm] = useState<Student>({ gender: 'LAKI_LAKI', status: 'AKTIF' })
   const [deleteId, setDeleteId] = useState<string | null>(null)
 
   const canCreate = hasPermission('students.create')
@@ -52,19 +51,6 @@ export function StudentsPage() {
       })
       return data
     },
-  })
-
-  const saveMutation = useMutation({
-    mutationFn: async (payload: Student) => {
-      if (editing) return api.put(`/students/${editing.id}`, payload)
-      return api.post('/students', payload)
-    },
-    onSuccess: () => {
-      toast.success(editing ? 'Siswa diperbarui' : 'Siswa ditambahkan')
-      setModalOpen(false)
-      qc.invalidateQueries({ queryKey: ['students'] })
-    },
-    onError: (e) => toast.danger(getErrorMessage(e)),
   })
 
   const deleteMutation = useMutation({
@@ -125,45 +111,8 @@ export function StudentsPage() {
     }
   }
 
-  function openCreate() {
-    setEditing(null)
-    setForm({ gender: 'LAKI_LAKI', status: 'AKTIF' })
-    setModalOpen(true)
-  }
-
-  function openEdit(s: Student) {
-    setEditing(s)
-    setForm({
-      nis: s.nis ?? '',
-      nisn: s.nisn ?? '',
-      fullName: s.fullName ?? '',
-      gender: s.gender ?? 'LAKI_LAKI',
-      birthPlace: s.birthPlace ?? '',
-      birthDate: s.birthDate ? s.birthDate.slice(0, 10) : '',
-      address: s.address ?? '',
-      phone: s.phone ?? '',
-      status: s.status ?? 'AKTIF',
-    })
-    setModalOpen(true)
-  }
-
-  function submit() {
-    if (!form.fullName) {
-      toast.danger('Nama lengkap wajib diisi')
-      return
-    }
-    const payload = { ...form }
-    Object.keys(payload).forEach((k) => payload[k] === '' && (payload[k] = undefined))
-    saveMutation.mutate(payload)
-  }
-
   const items = listQuery.data?.data ?? []
   const meta = listQuery.data?.meta
-
-  const bind = (name: string) => ({
-    value: form[name],
-    onChange: (v: string) => setForm({ ...form, [name]: v }),
-  })
 
   return (
     <div>
@@ -188,7 +137,7 @@ export function StudentsPage() {
                     e.target.value = ''
                   }}
                 />
-                <Button onPress={openCreate}><Plus />Tambah Siswa</Button>
+                <Button onPress={() => navigate('/students/new')}><Plus />Tambah Siswa</Button>
               </>
             )}
           </>
@@ -217,43 +166,19 @@ export function StudentsPage() {
             s.nisn ?? '-',
             s.fullName,
             s.gender === 'PEREMPUAN' ? 'P' : 'L',
-            <StatusChip color={STATUS_COLOR[s.status]}>{s.status}</StatusChip>,
-            <EditDeleteActions
-              onEdit={canUpdate ? () => openEdit(s) : undefined}
-              onDelete={canDelete ? () => setDeleteId(s.id) : undefined}
-            />,
+            <StatusChip color={STATUS_COLOR[s.status]}>{STUDENT_STATUS_LABEL[s.status] ?? s.status}</StatusChip>,
+            <RowActions>
+              <IconAction
+                label={canUpdate ? 'Edit' : 'Lihat detail'}
+                icon={canUpdate ? <PencilToSquare /> : <Eye />}
+                onPress={() => navigate(`/students/${s.id}`)}
+              />
+              {canDelete && <IconAction danger label="Hapus" icon={<TrashBin />} onPress={() => setDeleteId(s.id)} />}
+            </RowActions>,
           ]}
         />
         <TablePager meta={meta} page={page} onChange={setPage} />
       </Panel>
-
-      <Modal
-        open={modalOpen}
-        title={`${editing ? 'Edit' : 'Tambah'} Siswa`}
-        onClose={() => setModalOpen(false)}
-        footer={
-          <>
-            <Button variant="tertiary" onPress={() => setModalOpen(false)}>Batal</Button>
-            <Button onPress={submit} isPending={saveMutation.isPending}>
-              {saveMutation.isPending ? 'Menyimpan…' : 'Simpan'}
-            </Button>
-          </>
-        }
-      >
-        <FormStack>
-          <TextInput label="Nama Lengkap" required {...bind('fullName')} />
-          <FormGrid>
-            <TextInput label="NIS" {...bind('nis')} />
-            <TextInput label="NISN" {...bind('nisn')} />
-            <TextInput label="Tempat Lahir" {...bind('birthPlace')} />
-            <TextInput label="Tanggal Lahir" type="date" {...bind('birthDate')} />
-            <SelectInput label="Jenis Kelamin" noEmpty options={GENDER_OPTIONS} {...bind('gender')} />
-            <SelectInput label="Status" noEmpty options={STATUS_OPTIONS} {...bind('status')} />
-          </FormGrid>
-          <TextAreaInput label="Alamat" rows={2} {...bind('address')} />
-          <TextInput label="Telepon" {...bind('phone')} />
-        </FormStack>
-      </Modal>
 
       <ConfirmDialog
         open={!!deleteId}

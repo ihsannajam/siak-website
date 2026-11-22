@@ -1,3 +1,4 @@
+import { employeeSummary } from '../../common/personSelect';
 import { Router } from 'express';
 import { z } from 'zod';
 import { authenticate } from '../../middlewares/auth';
@@ -20,14 +21,14 @@ router.get('/', requirePermission('leave-requests.read'), asyncHandler(async (re
   if (req.query.status) where.status = req.query.status;
   if (req.query.employeeId) where.employeeId = req.query.employeeId;
   const [items, total] = await Promise.all([
-    prisma.leaveRequest.findMany({ where, include: { employee: true }, orderBy: { createdAt: 'desc' }, skip: params.skip, take: params.limit }),
+    prisma.leaveRequest.findMany({ where, include: { employee: employeeSummary }, orderBy: { createdAt: 'desc' }, skip: params.skip, take: params.limit }),
     prisma.leaveRequest.count({ where }),
   ]);
   return success(res, items, 'Berhasil', 200, buildMeta(total, params));
 }));
 
 router.get('/:id', requirePermission('leave-requests.read'), asyncHandler(async (req, res) => {
-  const item = await prisma.leaveRequest.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { employee: true } });
+  const item = await prisma.leaveRequest.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { employee: employeeSummary } });
   if (!item) throw ApiError.notFound('Pengajuan tidak ditemukan');
   return success(res, item);
 }));

@@ -136,6 +136,7 @@ export const ppdbService = {
         address: reg.address,
         status: 'AKTIF',
         ppdbId: reg.id,
+        registrationNumber: reg.registrationNumber,
         createdBy: userId,
         family: {
           create: {

@@ -1,3 +1,4 @@
+import { toast } from '@heroui/react'
 import axios from 'axios'
 import type {
   AxiosError,
@@ -174,3 +175,21 @@ export function getErrorMessage(error: unknown): string {
 
   return 'Terjadi kesalahan'
 }
+
+/** Membuka file privat lewat link sementara dari backend. */
+export async function openPrivateFile(endpoint: string) {
+  // Tab dibuka sebelum await agar tidak diblokir popup blocker.
+  const tab = window.open('about:blank', '_blank')
+  if (tab) tab.opener = null
+  try {
+    const { data } = await api.get<{ data: { url: string } }>(endpoint)
+    if (tab) tab.location.replace(data.data.url)
+    else toast.warning('Izinkan popup untuk membuka dokumen')
+  } catch (error) {
+    tab?.close()
+    toast.danger(getErrorMessage(error))
+  }
+}
+
+export const openStudentDocument = (studentId: string, documentId: string) =>
+  openPrivateFile(`/students/${studentId}/documents/${documentId}/url`)

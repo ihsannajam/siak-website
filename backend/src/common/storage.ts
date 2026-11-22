@@ -1,12 +1,14 @@
-import { S3Client } from '@aws-sdk/client-s3';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { Upload } from '@aws-sdk/lib-storage';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { randomUUID } from 'crypto';
 import multer from 'multer';
 import path from 'path';
 import { env } from '../config/env';
 import { ApiError } from './ApiError';
 
 // Inisialisasi S3 Client yang diarahkan ke endpoint S3 Supabase
-const s3Client = new S3Client({
+export const s3Client = new S3Client({
   forcePathStyle: true,
   region: env.storage.region || 'ap-southeast-3', // Isi sesuai region project Supabase Anda (misal: ap-southeast-1)
   endpoint: `https://${env.storage.projectRef}.storage.supabase.co/storage/v1/s3`, // Gunakan ID project Anda
@@ -16,7 +18,51 @@ const s3Client = new S3Client({
   }
 });
 
-const BUCKET_NAME = env.storage.bucketName || 'uploads';
+export const BUCKET_NAME = env.storage.bucketName || 'uploads';
+export const PRIVATE_BUCKET_NAME = env.storage.privateBucketName;
+export const PRIVATE_PATH_PREFIX = 'private://';
+
+/** Nama objek acak agar nama asli dokumen tidak ikut tersimpan di storage. */
+export function buildPrivateKey(folder: string, originalName: string): string {
+  const ext = path.extname(originalName).toLowerCase().replace(/[^a-z0-9.]/g, '').slice(0, 10);
+  return `${folder}/${randomUUID()}${ext}`;
+}
+
+/** Upload ke bucket privat. Tidak pernah jatuh kembali ke bucket publik. */
+export async function uploadPrivate(file: Express.Multer.File, folder: string): Promise<string> {
+  const key = buildPrivateKey(folder, file.originalname);
+  await new Upload({
+    client: s3Client,
+    params: { Bucket: PRIVATE_BUCKET_NAME, Key: key, Body: file.buffer, ContentType: file.mimetype },
+  }).done();
+  return `${PRIVATE_PATH_PREFIX}${key}`;
+}
+
+/** Mengenali path privat baru dan URL publik lama milik project ini. */
+export function resolveStoredObject(filePath: string): { bucket: string; key: string } | null {
+  if (filePath.startsWith(PRIVATE_PATH_PREFIX)) {
+    return { bucket: PRIVATE_BUCKET_NAME, key: filePath.slice(PRIVATE_PATH_PREFIX.length) };
+  }
+  try {
+    const url = new URL(filePath);
+    const match = url.pathname.match(/^\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+    if (url.hostname !== `${env.storage.projectRef}.supabase.co` || !match) return null;
+    return { bucket: decodeURIComponent(match[1]), key: decodeURIComponent(match[2]) };
+  } catch {
+    return null;
+  }
+}
+
+/** Link sementara untuk membuka file; panggil hanya setelah izin pengguna diperiksa. */
+export async function getSignedFileUrl(filePath: string, expiresInSeconds = 60): Promise<string> {
+  const object = resolveStoredObject(filePath);
+  if (!object) throw ApiError.notFound('File tidak ditemukan');
+  return getSignedUrl(
+    s3Client,
+    new GetObjectCommand({ Bucket: object.bucket, Key: object.key }),
+    { expiresIn: expiresInSeconds },
+  );
+}
 
 const ALLOWED_MIME = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'application/pdf',
@@ -38,31 +84,3 @@ export const upload = multer({
     cb(null, true);
   },
 });
-
-export async function uploadToSupabase(file: Express.Multer.File, folderParam?: string): Promise<string> {
-  const folder = folderParam || 'general';
-  const ext = path.extname(file.originalname);
-  const base = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 40);
-  const fileName = `${base}-${Date.now()}${ext}`;
-  const supabasePath = `${folder}/${fileName}`;
-
-  // Menggunakan lib-storage untuk menangani upload buffer memori ke S3 Supabase
-  const parallelUploads3 = new Upload({
-    client: s3Client,
-    params: {
-      Bucket: BUCKET_NAME,
-      Key: supabasePath,
-      Body: file.buffer,
-      ContentType: file.mimetype,
-    },
-  });
-
-  await parallelUploads3.done();
-  return supabasePath;
-}
-
-export function getPublicUrl(filePath: string): string {
-  if (!filePath) return '';
-  // Format URL publik bawaan objek CDN Supabase
-  return `https://${env.storage.projectRef}.supabase.co/storage/v1/object/public/${BUCKET_NAME}/${filePath}`;
-}

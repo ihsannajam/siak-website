@@ -7,6 +7,7 @@ import { Layout } from './components/Layout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { StudentsPage } from './pages/StudentsPage'
+import { StudentFormPage } from './pages/StudentFormPage'
 import { PpdbPage } from './pages/PpdbPage'
 import { SchedulesPage } from './pages/SchedulesPage'
 import { UsersPage } from './pages/UsersPage'
@@ -63,6 +64,8 @@ export default function App() {
             <Route element={<Layout />}>
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/students" element={<StudentsPage />} />
+              <Route path="/students/new" element={<StudentFormPage />} />
+              <Route path="/students/:id" element={<StudentFormPage />} />
               <Route path="/student-documents" element={<StudentDocumentsPage />} />
               <Route path="/ppdb" element={<PpdbPage />} />
               <Route path="/schedules" element={<SchedulesPage />} />

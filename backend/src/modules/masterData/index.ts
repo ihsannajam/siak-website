@@ -1,3 +1,4 @@
+import { employeeSummary, studentSummary } from '../../common/personSelect';
 import { Router } from 'express';
 import { createCrudRouter } from '../../common/crudRouter';
 import * as s from './schemas';
@@ -85,7 +86,7 @@ export function buildMasterDataRouters(): MountedRouter[] {
         permissionKey: 'classes',
         modelName: 'class',
         searchFields: ['name', 'gradeLevel'],
-        include: { academicYear: true, homeroomTeacher: true },
+        include: { academicYear: true, homeroomTeacher: employeeSummary },
         defaultSort: { name: 'asc' },
         createSchema: s.classSchema,
         updateSchema: s.classSchema.partial(),
@@ -129,7 +130,7 @@ export function buildMasterDataRouters(): MountedRouter[] {
       router: createCrudRouter({
         permissionKey: 'attendance-students',
         modelName: 'attendanceStudent',
-        include: { student: true },
+        include: { student: studentSummary },
         defaultSort: { date: 'desc' },
         createSchema: s.attendanceStudentSchema,
         updateSchema: s.attendanceStudentSchema.partial(),
@@ -141,7 +142,7 @@ export function buildMasterDataRouters(): MountedRouter[] {
         permissionKey: 'tahfidz',
         modelName: 'tahfidzRecord',
         searchFields: ['surah'],
-        include: { student: true },
+        include: { student: studentSummary },
         defaultSort: { date: 'desc' },
         createSchema: s.tahfidzSchema,
         updateSchema: s.tahfidzSchema.partial(),
@@ -153,7 +154,7 @@ export function buildMasterDataRouters(): MountedRouter[] {
         permissionKey: 'mutabaah',
         modelName: 'mutabaahRecord',
         searchFields: ['activity'],
-        include: { student: true },
+        include: { student: studentSummary },
         defaultSort: { date: 'desc' },
         createSchema: s.mutabaahSchema,
         updateSchema: s.mutabaahSchema.partial(),
@@ -166,7 +167,7 @@ export function buildMasterDataRouters(): MountedRouter[] {
       router: createCrudRouter({
         permissionKey: 'teacher-subjects',
         modelName: 'teacherSubjectAssignment',
-        include: { employee: true, subject: true },
+        include: { employee: employeeSummary, subject: true },
         createSchema: s.teacherSubjectSchema,
         updateSchema: s.teacherSubjectSchema.partial(),
       }),
@@ -179,7 +180,7 @@ export function buildMasterDataRouters(): MountedRouter[] {
         permissionKey: 'invoices',
         modelName: 'invoice',
         searchFields: ['invoiceNumber', 'description'],
-        include: { student: true },
+        include: { student: studentSummary },
         createSchema: s.invoiceSchema,
         updateSchema: s.invoiceSchema.partial(),
       }),
@@ -213,7 +214,7 @@ export function buildMasterDataRouters(): MountedRouter[] {
       router: createCrudRouter({
         permissionKey: 'attendance-employees',
         modelName: 'attendanceEmployee',
-        include: { employee: true },
+        include: { employee: employeeSummary },
         defaultSort: { date: 'desc' },
         createSchema: s.attendanceEmployeeSchema,
         updateSchema: s.attendanceEmployeeSchema.partial(),

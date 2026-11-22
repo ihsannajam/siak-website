@@ -8,7 +8,7 @@ import { asyncHandler } from '../../common/asyncHandler';
 import { success, created } from '../../common/apiResponse';
 import { getPageParams } from '../../common/pagination';
 import { writeAudit } from '../../common/audit';
-import { upload, uploadToSupabase, getPublicUrl } from '../../common/storage';
+import { getSignedFileUrl, upload, uploadPrivate } from '../../common/storage';
 import { ApiError } from '../../common/ApiError';
 import { prisma } from '../../config/prisma';
 
@@ -30,6 +30,13 @@ const ppdbSchema = z.object({
   notes: optionalString,
 });
 
+/** Lokasi file tidak pernah dikirim ke browser. */
+const toDocumentDto = <T extends { filePath: string }>({ filePath: _filePath, ...doc }: T) => doc;
+const toPaymentDto = <T extends { proofPath: string | null }>({ proofPath, ...payment }: T) => ({
+  ...payment,
+  hasProof: !!proofPath,
+});
+
 const router = Router();
 router.use(authenticate);
 
@@ -44,7 +51,12 @@ router.get(
 );
 
 router.get('/:id', requirePermission('ppdb.read'), asyncHandler(async (req, res) => {
-  return success(res, await ppdbService.getById(req.params.id));
+  const reg = await ppdbService.getById(req.params.id);
+  return success(res, {
+    ...reg,
+    documents: reg.documents.map(toDocumentDto),
+    payments: reg.payments.map(toPaymentDto),
+  });
 }));
 
 router.get('/:id/logs', requirePermission('ppdb.read'), asyncHandler(async (req, res) => {
@@ -69,19 +81,38 @@ router.delete('/:id', requirePermission('ppdb.delete'), asyncHandler(async (req,
 // ---- Document upload + verify ----
 router.post('/:id/documents', requirePermission('ppdb.update'), upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) throw ApiError.badRequest('File tidak ditemukan');
-  const supabasePath = await uploadToSupabase(req.file, 'ppdb');
+  const registration = await ppdbService.getById(req.params.id);
+  const filePath = await uploadPrivate(req.file, `ppdb/${registration.id}`);
   const doc = await prisma.ppdbDocument.create({
     data: {
       registrationId: req.params.id,
       docType: req.body.docType ?? 'PERSYARATAN',
       fileName: req.file.originalname,
-      filePath: getPublicUrl(supabasePath),
+      filePath,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
       createdBy: req.user!.id,
     },
   });
-  return created(res, doc, 'Dokumen diunggah');
+  await writeAudit({ req, action: 'UPLOAD_DOCUMENT', module: 'ppdb', entityId: registration.id, detail: doc.docType });
+  return created(res, toDocumentDto(doc), 'Dokumen diunggah');
+}));
+
+// Link sementara (60 detik). Dokumen PPDB dapat berisi KK, akta, dan KTP.
+router.get('/:id/documents/:docId/url', requirePermission('ppdb.update'), asyncHandler(async (req, res) => {
+  const doc = await prisma.ppdbDocument.findFirst({
+    where: {
+      id: req.params.docId,
+      registrationId: req.params.id,
+      deletedAt: null,
+      registration: { deletedAt: null },
+    },
+  });
+  if (!doc) throw ApiError.notFound('Dokumen tidak ditemukan');
+  const url = await getSignedFileUrl(doc.filePath, 60);
+  await writeAudit({ req, action: 'VIEW_DOCUMENT', module: 'ppdb', entityId: doc.registrationId, detail: doc.docType });
+  res.setHeader('Cache-Control', 'no-store');
+  return success(res, { url, expiresIn: 60 });
 }));
 
 router.post(
@@ -91,7 +122,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const result = await ppdbService.verifyDocument(req.body.documentId, req.body.isVerified, req.user!.id);
     await writeAudit({ req, action: 'VERIFY_DOCUMENT', module: 'ppdb', entityId: req.params.id });
-    return success(res, result, 'Verifikasi dokumen diperbarui');
+    return success(res, toDocumentDto(result), 'Verifikasi dokumen diperbarui');
   }),
 );
 
@@ -155,7 +186,7 @@ router.post(
         createdBy: req.user!.id,
       },
     });
-    return created(res, pay, 'Pembayaran daftar ulang dicatat');
+    return created(res, toPaymentDto(pay), 'Pembayaran daftar ulang dicatat');
   }),
 );
 

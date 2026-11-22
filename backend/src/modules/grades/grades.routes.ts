@@ -1,3 +1,4 @@
+import { studentSummary } from '../../common/personSelect';
 import { Router } from 'express';
 import { authenticate } from '../../middlewares/auth';
 import { requirePermission } from '../../middlewares/rbac';
@@ -20,14 +21,14 @@ router.get('/', requirePermission('grades.read'), asyncHandler(async (req, res) 
   if (req.query.subjectId) where.subjectId = req.query.subjectId;
   if (req.query.semesterId) where.semesterId = req.query.semesterId;
   const [items, total] = await Promise.all([
-    prisma.grade.findMany({ where, include: { student: true, subject: true }, orderBy: { createdAt: 'desc' }, skip: params.skip, take: params.limit }),
+    prisma.grade.findMany({ where, include: { student: studentSummary, subject: true }, orderBy: { createdAt: 'desc' }, skip: params.skip, take: params.limit }),
     prisma.grade.count({ where }),
   ]);
   return success(res, items, 'Berhasil', 200, buildMeta(total, params));
 }));
 
 router.get('/:id', requirePermission('grades.read'), asyncHandler(async (req, res) => {
-  const item = await prisma.grade.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { student: true, subject: true } });
+  const item = await prisma.grade.findFirst({ where: { id: req.params.id, deletedAt: null }, include: { student: studentSummary, subject: true } });
   if (!item) throw ApiError.notFound('Nilai tidak ditemukan');
   return success(res, item);
 }));

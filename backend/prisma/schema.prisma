@@ -31,7 +31,9 @@ enum StudentStatus {
   AKTIF
   LULUS
   PINDAH
-  DROP_OUT
+  DROP_OUT // nilai lama, dipertahankan untuk data yang sudah ada
+  NONAKTIF
+  MENGUNDURKAN_DIRI
 }
 
 enum EmploymentStatus {
@@ -276,6 +278,7 @@ model AcademicYear {
 
   semesters Semester[]
   classes   Class[]
+  entryStudents Student[] @relation("StudentEntryAcademicYear")
 
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
@@ -368,6 +371,7 @@ model Class {
   capacity       Int?
 
   classAssignments StudentClassAssignment[]
+  admittedStudents Student[] @relation("StudentAdmissionClass")
   scheduleDetails  ScheduleDetail[]
   reportCards      ReportCard[]
 
@@ -415,6 +419,40 @@ model Student {
   status      StudentStatus @default(AKTIF)
   ppdbId      String?       @unique @map("ppdb_id") // asal dari PPDB
 
+  // A. Identitas
+  nik                  String? @unique
+  nickname             String?
+  religion             String?
+  nationality          String?
+  childOrder           Int?    @map("child_order")
+  siblingsCount        Int?    @map("siblings_count")
+  stepSiblingsCount    Int?    @map("step_siblings_count")
+  adoptedSiblingsCount Int?    @map("adopted_siblings_count")
+  childStatus          String? @map("child_status")
+  dailyLanguage        String? @map("daily_language")
+
+  // B. Alamat dan domisili
+  village            String?
+  district           String?
+  city               String?
+  province           String?
+  postalCode         String? @map("postal_code")
+  email              String?
+  livingWith         String? @map("living_with")
+  distanceToSchoolKm Float?  @map("distance_to_school_km")
+
+  // G. Penerimaan
+  registrationNumber  String?       @map("registration_number")
+  registrationDate    DateTime?     @map("registration_date")
+  entryAcademicYearId String?       @map("entry_academic_year_id")
+  entryAcademicYear   AcademicYear? @relation("StudentEntryAcademicYear", fields: [entryAcademicYearId], references: [id])
+  educationProgram    String?       @map("education_program")
+  admissionType       String?       @map("admission_type")
+  admissionClassId    String?       @map("admission_class_id")
+  admissionClass      Class?        @relation("StudentAdmissionClass", fields: [admissionClassId], references: [id])
+  startStudyDate      DateTime?     @map("start_study_date")
+
+  educationHistories StudentEducationHistory[]
   family          StudentFamily?
   healthRecord    StudentHealthRecord?
   documents       StudentDocument[]
@@ -451,6 +489,37 @@ model StudentFamily {
   guardianPhone    String? @map("guardian_phone")
   guardianAddress  String? @map("guardian_address")
 
+  fatherNik         String?   @map("father_nik")
+  fatherBirthPlace  String?   @map("father_birth_place")
+  fatherBirthDate   DateTime? @map("father_birth_date")
+  fatherReligion    String?   @map("father_religion")
+  fatherNationality String?   @map("father_nationality")
+  fatherEducation   String?   @map("father_education")
+  fatherIncome      Int?      @map("father_income")
+  fatherEmail       String?   @map("father_email")
+  fatherAddress     String?   @map("father_address")
+  fatherLifeStatus  String?   @map("father_life_status")
+  fatherDeathYear   Int?      @map("father_death_year")
+  motherNik         String?   @map("mother_nik")
+  motherBirthPlace  String?   @map("mother_birth_place")
+  motherBirthDate   DateTime? @map("mother_birth_date")
+  motherReligion    String?   @map("mother_religion")
+  motherNationality String?   @map("mother_nationality")
+  motherEducation   String?   @map("mother_education")
+  motherIncome      Int?      @map("mother_income")
+  motherEmail       String?   @map("mother_email")
+  motherAddress     String?   @map("mother_address")
+  motherLifeStatus  String?   @map("mother_life_status")
+  motherDeathYear   Int?      @map("mother_death_year")
+  guardianNik        String?   @map("guardian_nik")
+  guardianBirthPlace String?   @map("guardian_birth_place")
+  guardianBirthDate  DateTime? @map("guardian_birth_date")
+  guardianReligion   String?   @map("guardian_religion")
+  guardianEducation  String?   @map("guardian_education")
+  guardianJob        String?   @map("guardian_job")
+  guardianIncome     Int?      @map("guardian_income")
+  guardianEmail      String?   @map("guardian_email")
+
   createdAt DateTime  @default(now()) @map("created_at")
   updatedAt DateTime  @updatedAt @map("updated_at")
   createdBy String?   @map("created_by")
@@ -468,7 +537,11 @@ model StudentHealthRecord {
   height       Float?
   weight       Float?
   diseaseHistory String? @map("disease_history")
-  allergies    String?
+  allergies    String? // kolom lama, dipertahankan untuk data yang sudah ada
+  foodAllergies     String? @map("food_allergies")
+  drugAllergies     String? @map("drug_allergies")
+  physicalCondition String? @map("physical_condition")
+  specialNeeds      String? @map("special_needs")
   notes        String?
 
   createdAt DateTime  @default(now()) @map("created_at")
@@ -478,6 +551,37 @@ model StudentHealthRecord {
   deletedAt DateTime? @map("deleted_at")
 
   @@map("student_health_records")
+}
+
+model StudentEducationHistory {
+  id        String  @id @default(uuid())
+  studentId String  @map("student_id")
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  level           String
+  schoolName      String    @map("school_name")
+  npsn            String?
+  schoolStatus    String?   @map("school_status")
+  schoolAddress   String?   @map("school_address")
+  entryYear       Int?      @map("entry_year")
+  exitYear        Int?      @map("exit_year")
+  lastClass       String?   @map("last_class")
+  educationStatus String?   @map("education_status")
+  diplomaNumber   String?   @map("diploma_number")
+  diplomaDate     DateTime? @map("diploma_date")
+  skhunNumber     String?   @map("skhun_number")
+  skhunDate       DateTime? @map("skhun_date")
+  studyDuration   String?   @map("study_duration")
+  notes           String?
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  deletedAt DateTime? @map("deleted_at")
+
+  @@index([studentId])
+  @@map("student_education_histories")
 }
 
 model StudentDocument {

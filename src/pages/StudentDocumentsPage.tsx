@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
+import { DOCUMENT_LABEL, REQUIRED_DOCUMENTS } from '../config/studentFields'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from '@heroui/react'
-import { api, getErrorMessage } from '../lib/api'
+import { api, getErrorMessage, openStudentDocument } from '../lib/api'
 import type { ApiResponse } from '../lib/types'
 import { Modal } from '../components/Modal'
 import { useAuth } from '../auth/AuthContext'
@@ -14,13 +15,7 @@ import {
 
 type Row = Record<string, any>
 
-const DOC_TYPES = [
-  { value: 'AKTA_KELAHIRAN', label: 'Akta Kelahiran' },
-  { value: 'KARTU_KELUARGA', label: 'Kartu Keluarga' },
-  { value: 'IJAZAH', label: 'Ijazah' },
-  { value: 'FOTO', label: 'Foto Profil' },
-  { value: 'LAINNYA', label: 'Lainnya' },
-]
+const DOC_TYPES = REQUIRED_DOCUMENTS.filter((d) => d.value)
 
 export function StudentDocumentsPage() {
   const { hasPermission } = useAuth()
@@ -84,7 +79,7 @@ function DocumentManager({
 }) {
   const qc = useQueryClient()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [docType, setDocType] = useState('AKTA_KELAHIRAN')
+  const [docType, setDocType] = useState(DOC_TYPES[0].value)
 
   const docsQuery = useQuery({
     queryKey: ['student-docs', student.id],
@@ -146,8 +141,8 @@ function DocumentManager({
         <ul className="flex flex-col gap-2">
           {docs.map((d) => (
             <li key={d.id} className="flex flex-wrap items-center gap-2">
-              <StatusChip>{d.docType}</StatusChip>
-              <Link href={d.filePath} target="_blank" rel="noreferrer">{d.fileName}</Link>
+              <StatusChip>{DOCUMENT_LABEL[d.docType] ?? d.docType}</StatusChip>
+              <Link className="cursor-pointer" onPress={() => openStudentDocument(student.id, d.id)}>{d.fileName}</Link>
             </li>
           ))}
         </ul>

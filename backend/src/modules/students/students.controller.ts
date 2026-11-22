@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { studentsService } from './students.service';
+import { presentStudent, redactStudent, stripStudentFiles, studentsService } from './students.service';
 import { asyncHandler } from '../../common/asyncHandler';
 import { success, created } from '../../common/apiResponse';
 import { getPageParams } from '../../common/pagination';
@@ -14,34 +14,35 @@ export const studentsController = {
     // ?all=true returns the full list (for dropdowns/selects) without pagination.
     if (req.query.all === 'true') {
       const items = await studentsService.findAll(status);
-      return success(res, items);
+      return success(res, items.map(stripStudentFiles));
     }
     const params = getPageParams(req);
     const { items, meta } = await studentsService.list(params, status);
-    return success(res, items, 'Berhasil', 200, meta);
+    return success(res, items.map(stripStudentFiles), 'Berhasil', 200, meta);
   }),
 
   alumni: asyncHandler(async (req: Request, res: Response) => {
     const params = getPageParams(req);
     const { items, meta } = await studentsService.listAlumni(params);
-    return success(res, items, 'Daftar alumni', 200, meta);
+    return success(res, items.map(stripStudentFiles), 'Daftar alumni', 200, meta);
   }),
 
   detail: asyncHandler(async (req: Request, res: Response) => {
     const item = await studentsService.getById(req.params.id);
-    return success(res, item);
+    const canViewSensitive = req.user!.permissions.includes('students.update');
+    return success(res, await presentStudent(canViewSensitive ? item : redactStudent(item)));
   }),
 
   create: asyncHandler(async (req: Request, res: Response) => {
     const item = await studentsService.create(req.body, req.user!.id);
     await writeAudit({ req, action: 'CREATE', module: 'students', entityId: item.id });
-    return created(res, item, 'Siswa berhasil ditambahkan');
+    return created(res, await presentStudent(item), 'Siswa berhasil ditambahkan');
   }),
 
   update: asyncHandler(async (req: Request, res: Response) => {
     const item = await studentsService.update(req.params.id, req.body, req.user!.id);
     await writeAudit({ req, action: 'UPDATE', module: 'students', entityId: item.id });
-    return success(res, item, 'Data siswa diperbarui');
+    return success(res, await presentStudent(item), 'Data siswa diperbarui');
   }),
 
   remove: asyncHandler(async (req: Request, res: Response) => {

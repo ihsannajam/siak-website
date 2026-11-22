@@ -4,7 +4,8 @@ import { createCrudRouter } from '../../common/crudRouter';
 import { authenticate } from '../../middlewares/auth';
 import { requirePermission } from '../../middlewares/rbac';
 import { validate } from '../../middlewares/validate';
-import { upload, uploadToSupabase, getPublicUrl } from '../../common/storage';
+import { getSignedFileUrl, upload, uploadPrivate } from '../../common/storage';
+import { writeAudit } from '../../common/audit';
 import { asyncHandler } from '../../common/asyncHandler';
 import { success, created } from '../../common/apiResponse';
 import { prisma } from '../../config/prisma';
@@ -37,6 +38,9 @@ const salarySchema = z.object({
   amount: z.coerce.number().nonnegative(),
 });
 
+/** Lokasi file tidak pernah dikirim ke browser. */
+const toDocumentDto = <T extends { filePath: string }>({ filePath: _filePath, ...doc }: T) => doc;
+
 // Base CRUD via factory
 const router = createCrudRouter({
   permissionKey: 'employees',
@@ -56,19 +60,60 @@ router.post(
   upload.single('file'),
   asyncHandler(async (req, res) => {
     if (!req.file) throw ApiError.badRequest('File tidak ditemukan');
-    const supabasePath = await uploadToSupabase(req.file, 'employees');
+    const employee = await prisma.employee.findFirst({
+      where: { id: req.params.id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!employee) throw ApiError.notFound('Pegawai tidak ditemukan');
+    const filePath = await uploadPrivate(req.file, `employees/${employee.id}`);
     const doc = await prisma.employeeDocument.create({
       data: {
         employeeId: req.params.id,
         docType: req.body.docType ?? 'LAINNYA',
         fileName: req.file.originalname,
-        filePath: getPublicUrl(supabasePath),
+        filePath,
         fileSize: req.file.size,
         mimeType: req.file.mimetype,
         createdBy: req.user!.id,
       },
     });
-    return created(res, doc, 'Dokumen pegawai diunggah');
+    await writeAudit({ req, action: 'UPLOAD_DOCUMENT', module: 'employees', entityId: employee.id, detail: doc.docType });
+    return created(res, toDocumentDto(doc), 'Dokumen pegawai diunggah');
+  }),
+);
+
+router.get(
+  '/:id/documents',
+  authenticate,
+  requirePermission('employees.update'),
+  asyncHandler(async (req, res) => {
+    const docs = await prisma.employeeDocument.findMany({
+      where: { employeeId: req.params.id, deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    return success(res, docs.map(toDocumentDto));
+  }),
+);
+
+// Link sementara (60 detik) untuk membuka satu dokumen pegawai.
+router.get(
+  '/:id/documents/:docId/url',
+  authenticate,
+  requirePermission('employees.update'),
+  asyncHandler(async (req, res) => {
+    const doc = await prisma.employeeDocument.findFirst({
+      where: {
+        id: req.params.docId,
+        employeeId: req.params.id,
+        deletedAt: null,
+        employee: { deletedAt: null },
+      },
+    });
+    if (!doc) throw ApiError.notFound('Dokumen tidak ditemukan');
+    const url = await getSignedFileUrl(doc.filePath, 60);
+    await writeAudit({ req, action: 'VIEW_DOCUMENT', module: 'employees', entityId: doc.employeeId, detail: doc.docType });
+    res.setHeader('Cache-Control', 'no-store');
+    return success(res, { url, expiresIn: 60 });
   }),
 );
 
